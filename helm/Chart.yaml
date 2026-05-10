@@ -1,0 +1,18 @@
+apiVersion: v2
+name: oneagent-os
+description: OneAgent OS — Unified AI Agent System with 24 Frameworks
+type: application
+version: 1.0.0
+appVersion: "1.0.0"
+keywords:
+  - ai
+  - agents
+  - llm
+  - multi-agent
+  - orchestration
+home: https://github.com/Bishoysamyaziz/Jnus.1
+sources:
+  - https://github.com/Bishoysamyaziz/Jnus.1
+maintainers:
+  - name: OneAgent Team
+    email: team@oneagent.os

@@ -1,0 +1,13 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "oneagent.fullname" . }}-api
+  labels:
+    {{- include "oneagent.labels" . | nindent 4 }}
+spec:
+  type: {{ .Values.service.type }}
+  ports:
+  - port: {{ .Values.service.port }}
+    targetPort: 8000
+  selector:
+    {{- include "oneagent.selectorLabels" . | nindent 4 }}

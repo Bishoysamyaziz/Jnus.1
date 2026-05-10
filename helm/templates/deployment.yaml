@@ -1,0 +1,48 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "oneagent.fullname" . }}-api
+  labels:
+    {{- include "oneagent.labels" . | nindent 4 }}
+spec:
+  replicas: {{ .Values.replicaCount }}
+  selector:
+    matchLabels:
+      {{- include "oneagent.selectorLabels" . | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        {{- include "oneagent.selectorLabels" . | nindent 8 }}
+    spec:
+      containers:
+      - name: api
+        image: "{{ .Values.image.repository }}-api:{{ .Values.image.tag }}"
+        imagePullPolicy: {{ .Values.image.pullPolicy }}
+        ports:
+        - containerPort: 8000
+        env:
+        - name: REDIS_URL
+          value: "redis://{{ include "oneagent.fullname" . }}-redis:6379"
+        - name: POSTGRES_URL
+          value: "postgresql://oneagent:{{ .Values.secrets.postgresPassword }}@{{ include "oneagent.fullname" . }}-postgres:5432/oneagent"
+        - name: QDRANT_URL
+          value: "http://{{ include "oneagent.fullname" . }}-qdrant:6333"
+        - name: ANTHROPIC_API_KEY
+          valueFrom:
+            secretKeyRef:
+              name: {{ include "oneagent.fullname" . }}-secrets
+              key: anthropic_api_key
+        resources:
+          {{- toYaml .Values.resources.api | nindent 10 }}
+        livenessProbe:
+          httpGet:
+            path: /health
+            port: 8000
+          initialDelaySeconds: 10
+          periodSeconds: 15
+        readinessProbe:
+          httpGet:
+            path: /health
+            port: 8000
+          initialDelaySeconds: 5
+          periodSeconds: 10

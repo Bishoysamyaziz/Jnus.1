@@ -1,0 +1,78 @@
+{
+  "dashboard": {
+    "title": "OneAgent OS — Monitoring",
+    "tags": ["oneagent", "ai", "agents"],
+    "timezone": "browser",
+    "panels": [
+      {
+        "title": "System Health",
+        "type": "stat",
+        "datasource": "Prometheus",
+        "targets": [{"expr": "oneagent_health_status"}],
+        "description": "Overall system health status"
+      },
+      {
+        "title": "Requests per Second",
+        "type": "graph",
+        "datasource": "Prometheus",
+        "targets": [{"expr": "rate(oneagent_requests_total[5m])"}],
+        "description": "API request rate"
+      },
+      {
+        "title": "Agent Usage Distribution",
+        "type": "piechart",
+        "datasource": "Prometheus",
+        "targets": [{"expr": "oneagent_agent_usage_total"}],
+        "description": "Which agents are used most"
+      },
+      {
+        "title": "Response Time (p50/p95/p99)",
+        "type": "graph",
+        "datasource": "Prometheus",
+        "targets": [
+          {"expr": "histogram_quantile(0.50, rate(oneagent_response_duration_seconds_bucket[5m]))", "legend": "p50"},
+          {"expr": "histogram_quantile(0.95, rate(oneagent_response_duration_seconds_bucket[5m]))", "legend": "p95"},
+          {"expr": "histogram_quantile(0.99, rate(oneagent_response_duration_seconds_bucket[5m]))", "legend": "p99"}
+        ],
+        "description": "Response time percentiles"
+      },
+      {
+        "title": "Memory Usage by Type",
+        "type": "graph",
+        "datasource": "Prometheus",
+        "targets": [
+          {"expr": "oneagent_memory_short_term_size", "legend": "Short-Term"},
+          {"expr": "oneagent_memory_long_term_size", "legend": "Long-Term"},
+          {"expr": "oneagent_memory_skill_size", "legend": "Skill"}
+        ],
+        "description": "Memory usage across 3 tiers"
+      },
+      {
+        "title": "Error Rate",
+        "type": "graph",
+        "datasource": "Prometheus",
+        "targets": [{"expr": "rate(oneagent_errors_total[5m])"}],
+        "description": "Error rate over time"
+      },
+      {
+        "title": "Token Usage & Cost",
+        "type": "graph",
+        "datasource": "Prometheus",
+        "targets": [
+          {"expr": "oneagent_token_usage_total", "legend": "Tokens"},
+          {"expr": "oneagent_cost_usd_total", "legend": "Cost (USD)"}
+        ],
+        "description": "Token consumption and associated cost"
+      },
+      {
+        "title": "Active Sessions",
+        "type": "stat",
+        "datasource": "Prometheus",
+        "targets": [{"expr": "oneagent_active_sessions"}],
+        "description": "Currently active user sessions"
+      }
+    ],
+    "schemaVersion": 38,
+    "version": 1
+  }
+}

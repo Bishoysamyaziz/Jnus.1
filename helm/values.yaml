@@ -1,0 +1,73 @@
+# OneAgent OS — Helm Values
+# Default values for production deployment
+
+replicaCount: 3
+
+image:
+  repository: ghcr.io/bishoysamyaziz/oneagent
+  tag: latest
+  pullPolicy: Always
+
+service:
+  type: ClusterIP
+  port: 8000
+
+ingress:
+  enabled: true
+  className: nginx
+  annotations:
+    cert-manager.io/cluster-issuer: letsencrypt-prod
+  hosts:
+    - host: oneagent.example.com
+      paths:
+        - path: /
+          pathType: Prefix
+  tls:
+    - secretName: oneagent-tls
+      hosts:
+        - oneagent.example.com
+
+resources:
+  api:
+    requests:
+      memory: "512Mi"
+      cpu: "250m"
+    limits:
+      memory: "1Gi"
+      cpu: "500m"
+  frontend:
+    requests:
+      memory: "256Mi"
+      cpu: "100m"
+    limits:
+      memory: "512Mi"
+      cpu: "250m"
+
+autoscaling:
+  enabled: true
+  minReplicas: 3
+  maxReplicas: 10
+  targetCPUUtilizationPercentage: 70
+  targetMemoryUtilizationPercentage: 80
+
+infrastructure:
+  redis:
+    enabled: true
+    persistence: false
+  postgres:
+    enabled: true
+    storageSize: 10Gi
+  qdrant:
+    enabled: true
+    persistence: false
+
+secrets:
+  anthropicApiKey: ""
+  postgresPassword: "oneagent_pass"
+
+monitoring:
+  prometheus:
+    enabled: true
+  grafana:
+    enabled: true
+    dashboard: true
