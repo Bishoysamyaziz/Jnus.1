@@ -5,7 +5,8 @@ RUN npm install -g pnpm
 
 FROM base AS deps
 WORKDIR /app
-COPY package.json pnpm-lock.yaml* ./
+COPY package.json pnpm-lock.yaml* pnpm-workspace.yaml* ./
+COPY packages/frontend/package.json ./packages/frontend/
 RUN pnpm install --frozen-lockfile 2>/dev/null || pnpm install
 
 FROM base AS build
@@ -19,9 +20,15 @@ RUN pnpm build 2>/dev/null || echo "Frontend build skipped - using dev mode"
 
 FROM base AS runner
 WORKDIR /app
+RUN npm install -g pnpm
 COPY --from=build /app/packages/frontend ./packages/frontend
 COPY --from=deps /app/node_modules ./node_modules
+COPY package.json pnpm-workspace.yaml* ./
 
 EXPOSE 3000
+
+# Health check
+HEALTHCHECK --interval=30s --timeout=10s --start-period=15s --retries=3 \
+    CMD wget --no-verbose --tries=1 --spider http://localhost:3000/ || exit 1
 
 CMD ["pnpm", "--filter", "frontend", "dev", "--port", "3000", "--hostname", "0.0.0.0"]

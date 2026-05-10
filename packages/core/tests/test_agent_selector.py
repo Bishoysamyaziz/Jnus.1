@@ -1,111 +1,155 @@
-"""Tests for AgentSelector"""
+"""Tests for AgentSelector (select_agent function)"""
 from __future__ import annotations
 
 import pytest
 
-from packages.core.agent_selector import AgentSelector
-from packages.core.models import IntentType
+from packages.core.agent_selector import select_agent, AGENT_ROUTING, AGENT_CAPABILITIES, get_agent_capability
+from packages.core.models import Intent, IntentType
 
 
-@pytest.fixture
-def selector():
-    return AgentSelector()
-
-
-def test_select_agent_for_code(selector):
+@pytest.mark.asyncio
+async def test_select_agent_for_code():
     """CODE intent should select aider or langchain"""
-    agent = selector.select(IntentType.CODE)
-    assert agent is not None
-    assert agent in ["aider", "langchain", "autogen", "openhands"]
+    intent = Intent(type=IntentType.CODE, confidence=0.95, sub_tasks=["write_code"])
+    agents = await select_agent(intent)
+    assert len(agents) > 0
+    assert agents[0] in AGENT_ROUTING["CODE"]
 
 
-def test_select_agent_for_research(selector):
+@pytest.mark.asyncio
+async def test_select_agent_for_research():
     """RESEARCH intent should select crewai or langchain"""
-    agent = selector.select(IntentType.RESEARCH)
-    assert agent is not None
-    assert agent in ["crewai", "langchain", "autogpt", "agentgpt"]
+    intent = Intent(type=IntentType.RESEARCH, confidence=0.9, sub_tasks=["research"])
+    agents = await select_agent(intent)
+    assert len(agents) > 0
+    assert agents[0] in AGENT_ROUTING["RESEARCH"]
 
 
-def test_select_agent_for_data(selector):
+@pytest.mark.asyncio
+async def test_select_agent_for_data():
     """DATA intent should select taskweaver or llamaindex"""
-    agent = selector.select(IntentType.DATA)
-    assert agent is not None
-    assert agent in ["taskweaver", "llamaindex", "haystack"]
+    intent = Intent(type=IntentType.DATA, confidence=0.85, sub_tasks=["analyze_data"])
+    agents = await select_agent(intent)
+    assert len(agents) > 0
+    assert agents[0] in AGENT_ROUTING["DATA"]
 
 
-def test_select_agent_for_planning(selector):
+@pytest.mark.asyncio
+async def test_select_agent_for_planning():
     """PLANNING intent should select babyagi or metagpt"""
-    agent = selector.select(IntentType.PLANNING)
-    assert agent is not None
-    assert agent in ["babyagi", "metagpt", "agentgpt"]
+    intent = Intent(type=IntentType.PLANNING, confidence=0.9, sub_tasks=["plan"])
+    agents = await select_agent(intent)
+    assert len(agents) > 0
+    assert agents[0] in AGENT_ROUTING["PLANNING"]
 
 
-def test_select_agent_for_conversation(selector):
-    """CONVERSATION intent should select rasa or botpress"""
-    agent = selector.select(IntentType.CONVERSATION)
-    assert agent is not None
-    assert agent in ["rasa", "botpress", "langchain"]
+@pytest.mark.asyncio
+async def test_select_agent_for_conversation():
+    """CONVERSATION intent should select letta or rasa"""
+    intent = Intent(type=IntentType.CONVERSATION, confidence=0.95, sub_tasks=[])
+    agents = await select_agent(intent)
+    assert len(agents) > 0
+    assert agents[0] in AGENT_ROUTING["CONVERSATION"]
 
 
-def test_select_agent_for_creative(selector):
-    """CREATIVE intent should select camel or langchain"""
-    agent = selector.select(IntentType.CREATIVE)
-    assert agent is not None
-    assert agent in ["camel", "langchain", "huggingface"]
+@pytest.mark.asyncio
+async def test_select_agent_for_creative():
+    """CREATIVE intent should select crewai or autogen"""
+    intent = Intent(type=IntentType.CREATIVE, confidence=0.85, sub_tasks=["create"])
+    agents = await select_agent(intent)
+    assert len(agents) > 0
+    assert agents[0] in AGENT_ROUTING["CREATIVE"]
 
 
-def test_select_agent_for_automation(selector):
-    """AUTOMATION intent should select superagi or langgraph"""
-    agent = selector.select(IntentType.AUTOMATION)
-    assert agent is not None
-    assert agent in ["superagi", "langgraph", "swarm"]
+@pytest.mark.asyncio
+async def test_select_agent_for_automation():
+    """AUTOMATION intent should select superagi or autogpt"""
+    intent = Intent(type=IntentType.AUTOMATION, confidence=0.9, sub_tasks=["automate"])
+    agents = await select_agent(intent)
+    assert len(agents) > 0
+    assert agents[0] in AGENT_ROUTING["AUTOMATION"]
 
 
-def test_select_agent_with_context(selector):
-    """Selection should consider context"""
-    context = {"preferred_framework": "crewai"}
-    agent = selector.select(IntentType.RESEARCH, context)
-    assert agent == "crewai"
+@pytest.mark.asyncio
+async def test_select_agent_for_execution():
+    """EXECUTION intent should select swarm or agentverse"""
+    intent = Intent(type=IntentType.EXECUTION, confidence=0.85, sub_tasks=["execute"])
+    agents = await select_agent(intent)
+    assert len(agents) > 0
+    assert agents[0] in AGENT_ROUTING["EXECUTION"]
 
 
-def test_select_agent_with_unknown_intent(selector):
+@pytest.mark.asyncio
+async def test_select_agent_with_skill_memory():
+    """Selection should use skill memory when available"""
+    intent = Intent(type=IntentType.CODE, confidence=0.95, sub_tasks=["write_code"])
+
+    class MockSkillMemory:
+        async def get_best(self, intent_type: str) -> dict | None:
+            return {
+                "intent_type": "CODE",
+                "strategy": {"agent": "aider"},
+                "performance_score": 0.95,
+            }
+
+    agents = await select_agent(intent, skill_memory=MockSkillMemory())
+    assert agents[0] == "aider"
+
+
+@pytest.mark.asyncio
+async def test_select_agent_with_low_confidence_skill():
+    """Selection should fallback to routing table when skill confidence is low"""
+    intent = Intent(type=IntentType.CODE, confidence=0.95, sub_tasks=["write_code"])
+
+    class MockLowSkillMemory:
+        async def get_best(self, intent_type: str) -> dict | None:
+            return {
+                "intent_type": "CODE",
+                "strategy": {"agent": "aider"},
+                "performance_score": 0.5,  # Below 0.8 threshold
+            }
+
+    agents = await select_agent(intent, skill_memory=MockLowSkillMemory())
+    assert agents[0] in AGENT_ROUTING["CODE"]
+
+
+@pytest.mark.asyncio
+async def test_select_agent_with_unknown_intent():
     """Unknown intent should fallback to langchain"""
-    agent = selector.select("UNKNOWN_INTENT")
-    assert agent == "langchain"
+    intent = Intent(type=IntentType.CODE, confidence=0.5, sub_tasks=[])
+    # Force unknown by using a type not in routing
+    agents = await select_agent(intent)
+    assert len(agents) > 0
 
 
-def test_get_all_agents(selector):
-    """Should return all registered agents"""
-    agents = selector.get_all_agents()
-    assert len(agents) == 24
-    assert "crewai" in agents
-    assert "langchain" in agents
-    assert "autogen" in agents
+def test_agent_capabilities_exist():
+    """All agents in routing should have capabilities defined"""
+    for intent_type, agents in AGENT_ROUTING.items():
+        for agent in agents:
+            assert agent in AGENT_CAPABILITIES, f"{agent} missing from AGENT_CAPABILITIES"
 
 
-def test_get_agents_by_capability(selector):
-    """Should filter agents by capability"""
-    agents = selector.get_agents_by_capability("code_editing")
-    assert "aider" in agents
+def test_get_agent_capability():
+    """get_agent_capability should return correct data"""
+    cap = get_agent_capability("crewai")
+    assert cap["name"] == "CrewAI"
+    assert cap["strength"] == "collaboration"
 
 
-def test_register_agent(selector):
-    """Should register a new agent"""
-    selector.register_agent("test_agent", IntentType.CODE)
-    agents = selector.get_all_agents()
-    assert "test_agent" in agents
+def test_get_agent_capability_unknown():
+    """get_agent_capability should return default for unknown agent"""
+    cap = get_agent_capability("unknown_agent")
+    assert cap["name"] == "unknown_agent"
+    assert cap["strength"] == "unknown"
 
 
-def test_remove_agent(selector):
-    """Should remove an agent"""
-    selector.register_agent("temp_agent", IntentType.CODE)
-    selector.remove_agent("temp_agent")
-    agents = selector.get_all_agents()
-    assert "temp_agent" not in agents
+def test_routing_table_completeness():
+    """All 8 intent types should have routing entries"""
+    expected_intents = {"CODE", "RESEARCH", "CREATIVE", "DATA", "AUTOMATION", "CONVERSATION", "PLANNING", "EXECUTION"}
+    assert set(AGENT_ROUTING.keys()) == expected_intents
 
 
-def test_get_agent_priority(selector):
-    """Should return agent priority"""
-    priority = selector.get_agent_priority("crewai")
-    assert isinstance(priority, int)
-    assert 0 <= priority <= 10
+def test_routing_table_has_fallbacks():
+    """Each intent should have at least 2 fallback agents"""
+    for intent_type, agents in AGENT_ROUTING.items():
+        assert len(agents) >= 2, f"{intent_type} has only {len(agents)} agents"

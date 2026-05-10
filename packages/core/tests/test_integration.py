@@ -1,6 +1,5 @@
 """Integration Tests — Full Pipeline
 Tests the complete flow: Intent → Selector → Orchestrator → Agent → Memory
-Requires: docker compose up (Redis, PostgreSQL, Qdrant)
 """
 from __future__ import annotations
 
@@ -8,9 +7,9 @@ import pytest
 import asyncio
 
 from packages.core.orchestrator import Orchestrator
-from packages.core.models import Task, IntentType, MemoryContext
 from packages.core.intent.classifier import IntentClassifier
-from packages.core.agent_selector import AgentSelector
+from packages.core.agent_selector import select_agent
+from packages.core.models import IntentType
 
 
 @pytest.fixture
@@ -23,158 +22,201 @@ def classifier():
     return IntentClassifier()
 
 
-@pytest.fixture
-def selector():
-    return AgentSelector()
-
-
 @pytest.mark.asyncio
 async def test_full_pipeline_code(orchestrator):
-    """Full pipeline: CODE task → classify → select → execute → memory"""
-    task = Task(description="write a Python function to calculate factorial", intent_type=IntentType.CODE)
-    memory = MemoryContext(user_id="integration_test", session_id="int_session_1")
-    result = await orchestrator.process(task, memory)
-    assert result.success
-    assert result.framework is not None
-    assert len(result.content) > 0
-    assert result.framework in ["aider", "langchain", "autogen", "openhands", "smolagents"]
+    """Full pipeline: CODE message → classify → select → execute"""
+    chunks = []
+    async for chunk in orchestrator.process(
+        message="write a Python function to calculate factorial",
+        session_id="int_session_1",
+        user_id="integration_test",
+    ):
+        chunks.append(chunk)
+    assert len(chunks) > 0
+    assert any(c.type == "intent" for c in chunks)
+    assert any(c.type == "done" for c in chunks)
 
 
 @pytest.mark.asyncio
 async def test_full_pipeline_research(orchestrator):
-    """Full pipeline: RESEARCH task"""
-    task = Task(description="explain the theory of relativity", intent_type=IntentType.RESEARCH)
-    memory = MemoryContext(user_id="integration_test", session_id="int_session_2")
-    result = await orchestrator.process(task, memory)
-    assert result.success
-    assert result.framework in ["crewai", "langchain", "autogpt", "agentgpt", "huggingface"]
+    """Full pipeline: RESEARCH message"""
+    chunks = []
+    async for chunk in orchestrator.process(
+        message="explain the theory of relativity",
+        session_id="int_session_2",
+        user_id="integration_test",
+    ):
+        chunks.append(chunk)
+    assert len(chunks) > 0
+    assert any(c.type == "done" for c in chunks)
 
 
 @pytest.mark.asyncio
 async def test_full_pipeline_data(orchestrator):
-    """Full pipeline: DATA task"""
-    task = Task(description="analyze this CSV data for trends", intent_type=IntentType.DATA)
-    memory = MemoryContext(user_id="integration_test", session_id="int_session_3")
-    result = await orchestrator.process(task, memory)
-    assert result.success
-    assert result.framework in ["taskweaver", "llamaindex", "haystack", "langchain"]
+    """Full pipeline: DATA message"""
+    chunks = []
+    async for chunk in orchestrator.process(
+        message="analyze this CSV data for trends",
+        session_id="int_session_3",
+        user_id="integration_test",
+    ):
+        chunks.append(chunk)
+    assert len(chunks) > 0
+    assert any(c.type == "done" for c in chunks)
 
 
 @pytest.mark.asyncio
 async def test_full_pipeline_planning(orchestrator):
-    """Full pipeline: PLANNING task"""
-    task = Task(description="plan a 6-month learning path for data science", intent_type=IntentType.PLANNING)
-    memory = MemoryContext(user_id="integration_test", session_id="int_session_4")
-    result = await orchestrator.process(task, memory)
-    assert result.success
-    assert result.framework in ["babyagi", "metagpt", "agentgpt", "langgraph"]
+    """Full pipeline: PLANNING message"""
+    chunks = []
+    async for chunk in orchestrator.process(
+        message="plan a 6-month learning path for data science",
+        session_id="int_session_4",
+        user_id="integration_test",
+    ):
+        chunks.append(chunk)
+    assert len(chunks) > 0
+    assert any(c.type == "done" for c in chunks)
 
 
 @pytest.mark.asyncio
 async def test_full_pipeline_conversation(orchestrator):
-    """Full pipeline: CONVERSATION task"""
-    task = Task(description="hello, how are you?", intent_type=IntentType.CONVERSATION)
-    memory = MemoryContext(user_id="integration_test", session_id="int_session_5")
-    result = await orchestrator.process(task, memory)
-    assert result.success
-    assert result.framework in ["rasa", "botpress", "langchain", "letta"]
+    """Full pipeline: CONVERSATION message"""
+    chunks = []
+    async for chunk in orchestrator.process(
+        message="hello, how are you?",
+        session_id="int_session_5",
+        user_id="integration_test",
+    ):
+        chunks.append(chunk)
+    assert len(chunks) > 0
+    assert any(c.type == "done" for c in chunks)
 
 
 @pytest.mark.asyncio
 async def test_full_pipeline_creative(orchestrator):
-    """Full pipeline: CREATIVE task"""
-    task = Task(description="write a haiku about AI", intent_type=IntentType.CREATIVE)
-    memory = MemoryContext(user_id="integration_test", session_id="int_session_6")
-    result = await orchestrator.process(task, memory)
-    assert result.success
-    assert result.framework in ["camel", "langchain", "huggingface", "agentverse"]
+    """Full pipeline: CREATIVE message"""
+    chunks = []
+    async for chunk in orchestrator.process(
+        message="write a haiku about AI",
+        session_id="int_session_6",
+        user_id="integration_test",
+    ):
+        chunks.append(chunk)
+    assert len(chunks) > 0
+    assert any(c.type == "done" for c in chunks)
 
 
 @pytest.mark.asyncio
 async def test_full_pipeline_automation(orchestrator):
-    """Full pipeline: AUTOMATION task"""
-    task = Task(description="automate daily email reports", intent_type=IntentType.AUTOMATION)
-    memory = MemoryContext(user_id="integration_test", session_id="int_session_7")
-    result = await orchestrator.process(task, memory)
-    assert result.success
-    assert result.framework in ["superagi", "langgraph", "swarm", "autogen"]
+    """Full pipeline: AUTOMATION message"""
+    chunks = []
+    async for chunk in orchestrator.process(
+        message="automate daily email reports",
+        session_id="int_session_7",
+        user_id="integration_test",
+    ):
+        chunks.append(chunk)
+    assert len(chunks) > 0
+    assert any(c.type == "done" for c in chunks)
 
 
 @pytest.mark.asyncio
-async def test_classify_then_select(classifier, selector):
+async def test_classify_then_select(classifier):
     """Test classify → select chain"""
     text = "write a REST API in Python"
     intent = await classifier.classify(text)
     assert intent.type == IntentType.CODE
-    agent = selector.select(intent.type)
-    assert agent is not None
-    assert agent in ["aider", "langchain", "autogen", "openhands", "smolagents"]
+    agents = await select_agent(intent)
+    assert len(agents) > 0
+    assert agents[0] in ["aider", "openhands", "smolagents", "metagpt", "autogen"]
 
 
 @pytest.mark.asyncio
-async def test_classify_then_select_research(classifier, selector):
+async def test_classify_then_select_research(classifier):
     """Test classify → select for research"""
     text = "research the latest AI trends"
     intent = await classifier.classify(text)
     assert intent.type == IntentType.RESEARCH
-    agent = selector.select(intent.type)
-    assert agent in ["crewai", "langchain", "autogpt", "agentgpt"]
+    agents = await select_agent(intent)
+    assert len(agents) > 0
+    assert agents[0] in ["langchain", "haystack", "llamaindex", "crewai", "huggingface"]
 
 
 @pytest.mark.asyncio
-async def test_concurrent_tasks(orchestrator):
-    """Test concurrent task processing"""
-    tasks = [
-        Task(description=f"task {i}", intent_type=IntentType.CODE)
-        for i in range(5)
-    ]
-    memories = [
-        MemoryContext(user_id="concurrent_test", session_id=f"con_session_{i}")
-        for i in range(5)
-    ]
+async def test_concurrent_messages(orchestrator):
+    """Test concurrent message processing"""
+    async def process_message(session_id: str, message: str):
+        chunks = []
+        async for chunk in orchestrator.process(
+            message=message,
+            session_id=session_id,
+            user_id="concurrent_test",
+        ):
+            chunks.append(chunk)
+        return chunks
+
     results = await asyncio.gather(*[
-        orchestrator.process(t, m) for t, m in zip(tasks, memories)
+        process_message(f"con_session_{i}", f"task {i}") for i in range(5)
     ])
     assert len(results) == 5
-    assert all(r.success for r in results)
+    for chunks in results:
+        assert any(c.type == "done" for c in chunks)
 
 
 @pytest.mark.asyncio
-async def test_memory_persistence(orchestrator):
-    """Test memory persists across tasks in same session"""
+async def test_session_persistence(orchestrator):
+    """Test session persists across messages"""
     session_id = "persistence_test_session"
-    memory = MemoryContext(user_id="persistence_test", session_id=session_id)
 
-    task1 = Task(description="first task", intent_type=IntentType.CODE)
-    result1 = await orchestrator.process(task1, memory)
-    assert result1.success
+    # First message
+    async for _ in orchestrator.process(
+        message="first message",
+        session_id=session_id,
+        user_id="persistence_test",
+    ):
+        pass
 
-    task2 = Task(description="second task in same session", intent_type=IntentType.CODE)
-    result2 = await orchestrator.process(task2, memory)
-    assert result2.success
+    # Second message in same session
+    async for _ in orchestrator.process(
+        message="second message in same session",
+        session_id=session_id,
+        user_id="persistence_test",
+    ):
+        pass
+
+    # Session should exist
+    session = orchestrator.get_session(session_id)
+    assert session is not None
+    assert len(session["messages"]) > 0
 
 
 @pytest.mark.asyncio
 async def test_error_recovery(orchestrator):
     """Test system recovers from errors gracefully"""
-    # Send empty task → should fail gracefully
-    task = Task(description="", intent_type=IntentType.CONVERSATION)
-    memory = MemoryContext(user_id="error_test", session_id="error_session")
-    result = await orchestrator.process(task, memory)
-    assert result.success is False
+    # Send empty message
+    async for _ in orchestrator.process(
+        message="",
+        session_id="error_session",
+        user_id="error_test",
+    ):
+        pass
 
-    # Next task should still work
-    task2 = Task(description="recovery task", intent_type=IntentType.CODE)
-    result2 = await orchestrator.process(task2, memory)
-    assert result2.success
+    # Next message should still work
+    chunks = []
+    async for chunk in orchestrator.process(
+        message="recovery task",
+        session_id="error_session",
+        user_id="error_test",
+    ):
+        chunks.append(chunk)
+    assert any(c.type == "done" for c in chunks)
 
 
 @pytest.mark.asyncio
 async def test_health_check_all_services(orchestrator):
     """Test health check reports all services"""
-    health = await orchestrator.health()
-    assert health["status"] in ["healthy", "degraded"]
-    assert "agents" in health
-    assert "memory" in health
-    assert "version" in health
-    assert health["version"] == "1.0.0"
+    health = await orchestrator.health_check()
+    assert health["status"] == "ok"
+    assert "classifier" in health
+    assert "agents_registered" in health

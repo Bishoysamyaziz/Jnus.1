@@ -1,111 +1,120 @@
-"""Tests for Planner"""
+"""Tests for PlannerEngine"""
 from __future__ import annotations
 
 import pytest
 
-from packages.core.planning.planner import Planner
-from packages.core.models import Task, IntentType
+from packages.core.planning.planner import PlannerEngine
+from packages.core.models import Task, IntentType, TaskGraph
 
 
 @pytest.fixture
 def planner():
-    return Planner()
+    return PlannerEngine()
 
 
-@pytest.mark.asyncio
-async def test_create_plan(planner):
-    """Should create a plan from a task"""
-    task = Task(description="build a web app", intent_type=IntentType.CODE)
-    plan = await planner.create_plan(task)
+def test_create_plan(planner):
+    """Should create a plan from a task graph"""
+    tasks = [
+        Task(description="build a web app", intent=IntentType.CODE, priority=1),
+    ]
+    graph = TaskGraph(tasks=tasks)
+    plan = planner.plan(graph, ["aider", "langchain"])
     assert plan is not None
-    assert len(plan.steps) > 0
-    assert all(hasattr(s, "description") for s in plan.steps)
-    assert all(hasattr(s, "order") for s in plan.steps)
+    assert len(plan.tasks) > 0
+    assert len(plan.parallel_groups) > 0
 
 
-@pytest.mark.asyncio
-async def test_create_plan_for_research(planner):
-    """Should create a research plan"""
-    task = Task(description="research quantum computing", intent_type=IntentType.RESEARCH)
-    plan = await planner.create_plan(task)
-    assert plan is not None
-    assert len(plan.steps) > 0
+def test_create_plan_with_dependencies(planner):
+    """Should handle task dependencies"""
+    tasks = [
+        Task(id="1", description="setup", intent=IntentType.CODE, dependencies=[], priority=1),
+        Task(id="2", description="build", intent=IntentType.CODE, dependencies=["1"], priority=2),
+        Task(id="3", description="test", intent=IntentType.CODE, dependencies=["2"], priority=3),
+    ]
+    graph = TaskGraph(tasks=tasks)
+    plan = planner.plan(graph, ["aider"])
+    assert len(plan.tasks) == 3
+    # First group should have task 1 only
+    assert "1" in plan.parallel_groups[0]
 
 
-@pytest.mark.asyncio
-async def test_create_plan_for_data(planner):
-    """Should create a data analysis plan"""
-    task = Task(description="analyze sales data", intent_type=IntentType.DATA)
-    plan = await planner.create_plan(task)
-    assert plan is not None
-    assert len(plan.steps) > 0
+def test_parallel_groups(planner):
+    """Should identify parallel execution groups"""
+    tasks = [
+        Task(id="1", description="task1", intent=IntentType.CODE, dependencies=[], priority=1),
+        Task(id="2", description="task2", intent=IntentType.CODE, dependencies=[], priority=1),
+        Task(id="3", description="task3", intent=IntentType.CODE, dependencies=["1", "2"], priority=2),
+    ]
+    graph = TaskGraph(tasks=tasks)
+    plan = planner.plan(graph, ["aider", "langchain"])
+    # Group 0: tasks 1,2 (parallel)
+    # Group 1: task 3 (after 1,2 done)
+    assert len(plan.parallel_groups) >= 2
+    assert "1" in plan.parallel_groups[0]
+    assert "2" in plan.parallel_groups[0]
 
 
-@pytest.mark.asyncio
-async def test_create_plan_for_planning(planner):
-    """Should create a meta-planning plan"""
-    task = Task(description="plan a project", intent_type=IntentType.PLANNING)
-    plan = await planner.create_plan(task)
-    assert plan is not None
-    assert len(plan.steps) > 0
+def test_agent_assignment(planner):
+    """Should assign agents to tasks"""
+    tasks = [
+        Task(id="1", description="task1", intent=IntentType.CODE, dependencies=[], priority=1),
+        Task(id="2", description="task2", intent=IntentType.CODE, dependencies=[], priority=2),
+    ]
+    graph = TaskGraph(tasks=tasks)
+    plan = planner.plan(graph, ["aider", "langchain"])
+    assert "1" in plan.agent_assignments
+    assert "2" in plan.agent_assignments
 
 
-@pytest.mark.asyncio
-async def test_create_plan_for_conversation(planner):
-    """Should create a simple conversation plan"""
-    task = Task(description="hello", intent_type=IntentType.CONVERSATION)
-    plan = await planner.create_plan(task)
-    assert plan is not None
-    assert len(plan.steps) >= 1
+def test_estimate_duration(planner):
+    """Should estimate execution duration"""
+    tasks = [
+        Task(id="1", description="task1", intent=IntentType.CODE, dependencies=[], priority=1),
+        Task(id="2", description="task2", intent=IntentType.CODE, dependencies=["1"], priority=2),
+    ]
+    graph = TaskGraph(tasks=tasks)
+    plan = planner.plan(graph, ["aider"])
+    duration = planner.estimate_duration(plan)
+    assert duration > 0
 
 
-@pytest.mark.asyncio
-async def test_create_plan_for_creative(planner):
-    """Should create a creative plan"""
-    task = Task(description="write a poem", intent_type=IntentType.CREATIVE)
-    plan = await planner.create_plan(task)
-    assert plan is not None
-    assert len(plan.steps) > 0
+def test_estimate_cost(planner):
+    """Should estimate execution cost"""
+    tasks = [
+        Task(id="1", description="task1", intent=IntentType.CODE, dependencies=[], priority=1),
+    ]
+    graph = TaskGraph(tasks=tasks)
+    plan = planner.plan(graph, ["aider"])
+    cost = planner.estimate_cost(plan)
+    assert cost >= 0
 
 
-@pytest.mark.asyncio
-async def test_create_plan_for_automation(planner):
-    """Should create an automation plan"""
-    task = Task(description="automate deployment", intent_type=IntentType.AUTOMATION)
-    plan = await planner.create_plan(task)
-    assert plan is not None
-    assert len(plan.steps) > 0
+def test_empty_graph(planner):
+    """Should handle empty task graph"""
+    graph = TaskGraph(tasks=[])
+    plan = planner.plan(graph, ["aider"])
+    assert len(plan.tasks) == 0
+    assert len(plan.parallel_groups) == 0
 
 
-@pytest.mark.asyncio
-async def test_create_plan_with_empty_task(planner):
-    """Should handle empty task"""
-    task = Task(description="", intent_type=IntentType.CONVERSATION)
-    plan = await planner.create_plan(task)
-    assert plan is not None
-    assert len(plan.steps) == 1  # Default single step
+def test_single_task(planner):
+    """Should handle single task"""
+    tasks = [
+        Task(id="1", description="single task", intent=IntentType.CODE, dependencies=[], priority=1),
+    ]
+    graph = TaskGraph(tasks=tasks)
+    plan = planner.plan(graph, ["aider"])
+    assert len(plan.tasks) == 1
+    assert len(plan.parallel_groups) == 1
 
 
-@pytest.mark.asyncio
-async def test_plan_steps_have_order(planner):
-    """Plan steps should have sequential order"""
-    task = Task(description="complex task", intent_type=IntentType.CODE)
-    plan = await planner.create_plan(task)
-    for i, step in enumerate(plan.steps):
-        assert step.order == i + 1
-
-
-@pytest.mark.asyncio
-async def test_plan_has_estimated_duration(planner):
-    """Plan should have estimated duration"""
-    task = Task(description="test task", intent_type=IntentType.CODE)
-    plan = await planner.create_plan(task)
-    assert plan.estimated_duration > 0
-
-
-@pytest.mark.asyncio
-async def test_plan_has_estimated_cost(planner):
-    """Plan should have estimated cost"""
-    task = Task(description="test task", intent_type=IntentType.CODE)
-    plan = await planner.create_plan(task)
-    assert plan.estimated_cost >= 0
+def test_circular_dependency_handling(planner):
+    """Should handle circular dependencies gracefully"""
+    tasks = [
+        Task(id="1", description="task1", intent=IntentType.CODE, dependencies=["2"], priority=1),
+        Task(id="2", description="task2", intent=IntentType.CODE, dependencies=["1"], priority=2),
+    ]
+    graph = TaskGraph(tasks=tasks)
+    plan = planner.plan(graph, ["aider"])
+    # Should still produce a plan (all tasks in one group)
+    assert len(plan.tasks) == 2

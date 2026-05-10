@@ -14,7 +14,17 @@ class BaseAgent(ABC):
     """Interface موحد لكل الـ 24 framework.
     كل framework بيشتغل في isolation.
     الـ Orchestrator بيتكلم مع BaseAgent فقط — مش مع الـ framework مباشرة.
+
+    Rules (non-negotiable):
+    - Rule 4: No agent runs more than 5 minutes
+    - Rule 4: Max 20 iterations per execution
+    - Rule 4: Human-in-the-loop after 10 iterations
     """
+
+    # Rule 4: Timeout and iteration limits
+    timeout: int = 300  # 5 minutes max execution time
+    max_iterations: int = 20  # max loop iterations
+    human_in_loop_threshold: int = 10  # after 10 iterations → ask user
 
     @abstractmethod
     async def execute(self, task: Task, memory: MemoryContext) -> AgentResult:
