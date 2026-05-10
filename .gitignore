@@ -34,3 +34,9 @@ packages/windsurf-api/.env
 packages/windsurf-api/node_modules/
 packages/windsurf-api/data/
 
+# Cloudflare
+packages/frontend/.wrangler/
+packages/frontend/out/
+packages/api/.wrangler/
+packages/api/out/
+
