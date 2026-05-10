@@ -1,0 +1,47 @@
+# ============================================================
+# OneAgent OS — Docker Compose Override (Development)
+# ============================================================
+# Usage: docker compose up -d
+# This file is auto-loaded alongside docker-compose.yml
+
+version: "3.9"
+
+services:
+  api:
+    develop:
+      watch:
+        - path: ./packages/core
+          action: sync
+          target: /app/packages/core
+        - path: ./packages/api
+          action: sync
+          target: /app/packages/api
+        - path: ./packages/agents
+          action: sync
+          target: /app/packages/agents
+    volumes:
+      - ./packages:/app/packages
+    command: uvicorn packages.api.main:app --host 0.0.0.0 --port 8000 --reload
+
+  frontend:
+    develop:
+      watch:
+        - path: ./packages/frontend
+          action: sync
+          target: /app/packages/frontend
+    volumes:
+      - ./packages/frontend:/app/packages/frontend
+    command: pnpm --filter frontend dev --port 3000 --hostname 0.0.0.0
+
+  redis:
+    ports:
+      - "6379:6379"
+
+  postgres:
+    ports:
+      - "5432:5432"
+
+  qdrant:
+    ports:
+      - "6333:6333"
+      - "6334:6334"

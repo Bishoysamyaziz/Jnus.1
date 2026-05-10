@@ -103,8 +103,6 @@ class TaskGraphBuilder:
             tasks.append(task)
 
         graph = TaskGraph(tasks=tasks)
-        # Build parallel groups
-        graph._executed = set()
         return graph
 
     async def _build_with_llm(self, goal: str, intent: Intent) -> TaskGraph:

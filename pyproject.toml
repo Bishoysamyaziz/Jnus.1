@@ -25,4 +25,10 @@ select = ["E", "F", "I", "N", "W"]
 
 [tool.pytest.ini_options]
 asyncio_mode = "auto"
-testpaths = ["tests"]
+testpaths = ["packages/core/tests", "packages/api/tests"]
+test_timeout = 120
+filterwarnings = ["ignore::DeprecationWarning"]
+markers = [
+    "slow: marks tests as slow (deselect with '-m \"not slow\"')",
+    "integration: marks tests as integration tests",
+]

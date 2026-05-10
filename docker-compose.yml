@@ -113,7 +113,28 @@ services:
             - driver: nvidia
               count: all
               capabilities: [gpu]
+    runtime: nvidia
     restart: unless-stopped
+    networks:
+      - oneagent-net
+
+  # ── WindsurfAPI (Free LLM Gateway) ──────────────────────────────
+  windsurf-api:
+    build: ./packages/windsurf-api
+    container_name: oneagent-windsurf
+    restart: unless-stopped
+    ports:
+      - "3003:3003"
+    env_file:
+      - ./packages/windsurf-api/.env
+    volumes:
+      - windsurf-data:/data
+      - windsurf-opt:/opt/windsurf
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3003/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
     networks:
       - oneagent-net
 
@@ -122,6 +143,8 @@ volumes:
   postgres-data:
   qdrant-data:
   ollama-data:
+  windsurf-data:
+  windsurf-opt:
 
 networks:
   oneagent-net:

@@ -67,6 +67,7 @@ class Task:
 class TaskGraph:
     tasks: list[Task] = field(default_factory=list)
     edges: list[tuple[str, str]] = field(default_factory=list)  # (from_id, to_id)
+    _executed: set[str] = field(default_factory=set)
 
     def get_independent_tasks(self) -> list[Task]:
         """Tasks with no unresolved dependencies"""

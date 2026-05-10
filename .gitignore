@@ -1,1 +1,36 @@
 brains-core-extracted/
+
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+dist/
+build/
+.venv/
+venv/
+
+# Node
+node_modules/
+.next/
+.pnpm-store/
+
+# Environment
+.env
+.env.local
+
+# Docker
+.docker-data/
+
+# IDE
+.vscode/
+.idea/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# WindsurfAPI
+packages/windsurf-api/.env
+packages/windsurf-api/node_modules/
+packages/windsurf-api/data/
+

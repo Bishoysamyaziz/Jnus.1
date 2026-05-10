@@ -1,0 +1,62 @@
+# ============================================================
+# OneAgent OS — Docker Ignore
+# ============================================================
+
+# Git
+.git/
+.gitignore
+.gitattributes
+
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+*.egg
+dist/
+build/
+.venv/
+venv/
+*.so
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# Node
+node_modules/
+.pnpm-store/
+.next/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Environment
+.env
+.env.local
+.env.*.local
+
+# Documentation (not needed in production image)
+docs/
+*.md
+README*
+
+# Scripts
+scripts/
+extract.sh
+
+# K8s
+k8s/
+helm/
+
+# Other
+coverage/
+htmlcov/
+*.log
+*.sqlite3
