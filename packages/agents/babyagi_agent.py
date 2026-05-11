@@ -19,17 +19,35 @@ class BabyAGIAgent(BaseAgent):
 
     async def execute(self, task: Task, memory: MemoryContext) -> AgentResult:
         try:
-            from babyagi import BabyAGI
+            from langchain_openai import ChatOpenAI
         except ImportError:
             return AgentResult(
-                content=f"[BabyAGI] Framework not installed.\nTask: {task.description}",
+                content=f"[BabyAGI] LangChain not installed.\nTask: {task.description}",
                 framework="babyagi",
                 success=False,
-                error="BabyAGI not installed",
+                error="LangChain not installed",
             )
-        agi = BabyAGI()
-        result = await agi.run(task.description)
-        return AgentResult(content=str(result), framework="babyagi", success=True)
+
+        cfg = self.get_llm_config()
+        llm = ChatOpenAI(model=cfg["model"], base_url=cfg["base_url"], api_key=cfg["api_key"], temperature=0)
+
+        # BabyAGI loop: task creation → prioritization → execution
+        tasks    = [task.description]
+        results  = []
+        for _ in range(3):  # max 3 iterations
+            if not tasks:
+                break
+            current = tasks.pop(0)
+            response = await llm.ainvoke(current)
+            results.append(str(response.content))
+            # Generate next sub-task
+            next_task_prompt = f"Based on result: {results[-1][:200]}\nWhat is the next task for: {task.description}?"
+            next_resp = await llm.ainvoke(next_task_prompt)
+            next_task = str(next_resp.content).strip()
+            if next_task and "complete" not in next_task.lower():
+                tasks.append(next_task)
+
+        return AgentResult(content="\n---\n".join(results), framework="babyagi", success=True)
 
     def get_capabilities(self) -> list[Capability]:
         return [

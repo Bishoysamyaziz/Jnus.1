@@ -31,8 +31,9 @@ class CAMELAgent(BaseAgent):
                 error="CAMEL not installed",
             )
 
+        cfg = self.get_llm_config()
         system_msg = SystemMessage(content=f"You are a specialized agent for: {task.description}")
-        agent = ChatAgent(system_msg)
+        agent = ChatAgent(system_msg, model=cfg["model"])
         response = await agent.astep(task.description)
         return AgentResult(content=str(response.msg.content), framework="camel", success=True)
 

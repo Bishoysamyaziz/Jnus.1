@@ -27,7 +27,9 @@ class SmolAgentsAgent(BaseAgent):
                 success=False,
                 error="smolagents not installed",
             )
-        model = HfApiModel()
+
+        cfg = self.get_llm_config()
+        model = HfApiModel(model_id=cfg["model"])
         agent = CodeAgent(tools=[], model=model)
         result = agent.run(task.description)
         return AgentResult(content=str(result), framework="smolagents", success=True)

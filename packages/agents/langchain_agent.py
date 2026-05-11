@@ -19,9 +19,8 @@ class LangChainAgent(BaseAgent):
 
     async def execute(self, task: Task, memory: MemoryContext) -> AgentResult:
         try:
-            from langchain.agents import AgentExecutor, create_react_agent
-            from langchain.tools import tool
             from langchain_openai import ChatOpenAI
+            from langchain.agents import AgentExecutor, create_react_agent
             from langchain.prompts import PromptTemplate
         except ImportError:
             return AgentResult(
@@ -30,7 +29,14 @@ class LangChainAgent(BaseAgent):
                 success=False,
                 error="LangChain not installed",
             )
-        llm = ChatOpenAI(model="gpt-4", temperature=0)
+
+        cfg = self.get_llm_config()
+        llm = ChatOpenAI(
+            model=cfg["model"],
+            base_url=cfg["base_url"],
+            api_key=cfg["api_key"],
+            temperature=0,
+        )
         prompt = PromptTemplate.from_template("{input}")
         agent = create_react_agent(llm, [], prompt)
         executor = AgentExecutor(agent=agent, tools=[], verbose=False)

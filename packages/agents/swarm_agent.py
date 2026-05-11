@@ -26,8 +26,10 @@ class SwarmAgent(BaseAgent):
                 success=False,
                 error="Swarm not installed",
             )
-        client = Swarm()
-        agent = Agent(name="Generalist", instructions="Handle any task efficiently")
+
+        cfg = self.get_llm_config()
+        client = Swarm(base_url=cfg["base_url"], api_key=cfg["api_key"])
+        agent = Agent(name="Generalist", instructions="Handle any task efficiently", model=cfg["model"])
         response = client.run(agent=agent, messages=[{"role": "user", "content": task.description}])
         return AgentResult(content=str(response.messages[-1]["content"]), framework="swarm", success=True)
 

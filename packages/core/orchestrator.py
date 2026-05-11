@@ -14,6 +14,7 @@ from typing import Any, AsyncIterator, Optional
 from .agent_selector import AGENT_CAPABILITIES, AGENT_ROUTING, select_agent
 from .base_agent import AgentRegistry
 from .intent.classifier import IntentClassifier
+from .llm.router import router as llm_router
 from .models import (
     AgentResult,
     ExecutionPlan,
@@ -93,6 +94,31 @@ class Orchestrator:
                     "sub_tasks": intent.sub_tasks,
                 },
             )
+
+            # ── LLM Tier Routing ─────────────────────────────────────────────
+            complexity = round(1.0 - intent.confidence, 2)  # confidence عالية = مشكلة بسيطة
+            selected_tier = await llm_router.route(
+                intent=intent.type.value,
+                complexity=complexity,
+            )
+
+            # حطي الـ tier في البيئة عشان كل agent يقرأه
+            import os
+            os.environ["OPENAI_BASE_URL"] = selected_tier["base_url"]
+            os.environ["OPENAI_API_KEY"]  = selected_tier["api_key"] or "sk-dummy"
+            os.environ["DEFAULT_MODEL"]   = selected_tier["models"][0]
+
+            yield StreamChunk(
+                type="routing",
+                content=f"⚡ Tier: {selected_tier['name']} → {selected_tier['models'][0]} (complexity: {complexity})",
+                metadata={
+                    "tier":        selected_tier["name"],
+                    "model":       selected_tier["models"][0],
+                    "cost_per_1k": selected_tier["cost_per_1k"],
+                    "complexity":  complexity,
+                },
+            )
+            # ─────────────────────────────────────────────────────────────────
 
             # ── Step 2: Select Agents ──
             yield StreamChunk(type="status", content=f"🤖 اختيار الـ frameworks المناسبة...", metadata={"step": "select"})

@@ -22,7 +22,7 @@ class MetaGPTAgent(BaseAgent):
     async def execute(self, task: Task, memory: MemoryContext) -> AgentResult:
         try:
             from metagpt.software_company import SoftwareCompany
-            from metagpt.roles import ProductManager, Architect, ProjectManager, Engineer
+            from metagpt.config import CONFIG
         except ImportError:
             return AgentResult(
                 content=f"[MetaGPT] Framework not installed. Install with: pip install metagpt\nTask: {task.description}",
@@ -31,13 +31,15 @@ class MetaGPTAgent(BaseAgent):
                 error="MetaGPT not installed",
             )
 
-        company = SoftwareCompany()
-        company.add_role(ProductManager())
-        company.add_role(Architect())
-        company.add_role(ProjectManager())
-        company.add_role(Engineer())
+        cfg = self.get_llm_config()
+        CONFIG.openai_api_base = cfg["base_url"]
+        CONFIG.openai_api_key  = cfg["api_key"]
+        CONFIG.openai_api_model = cfg["model"]
 
-        result = await company.run(task.description)
+        company = SoftwareCompany()
+        company.hire(["ProjectManager", "Architect", "Engineer", "QAEngineer"])
+        company.start_project(task.description)
+        result = await company.run(n_round=2)
         return AgentResult(content=str(result), framework="metagpt", success=True)
 
     def get_capabilities(self) -> list[Capability]:

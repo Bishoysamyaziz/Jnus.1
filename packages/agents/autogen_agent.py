@@ -30,11 +30,18 @@ class AutoGenAgent(BaseAgent):
                 error="AutoGen not installed",
             )
 
-        config_list = [{"model": "gpt-4", "api_key": "mock"}]
-        coder = autogen.AssistantAgent(name="Coder", llm_config={"config_list": config_list})
-        critic = autogen.AssistantAgent(name="Critic", llm_config={"config_list": config_list})
-        user_proxy = autogen.UserProxyAgent(name="User", human_input_mode="NEVER", code_execution_config=False)
+        cfg = self.get_llm_config()
+        config_list = [{"model": cfg["model"], "api_key": cfg["api_key"], "base_url": cfg["base_url"]}]
+        llm_config  = {"config_list": config_list, "timeout": 60}
 
+        coder      = autogen.AssistantAgent(name="Coder",  llm_config=llm_config)
+        critic     = autogen.AssistantAgent(name="Critic", llm_config=llm_config)
+        user_proxy = autogen.UserProxyAgent(
+            name="User",
+            human_input_mode="NEVER",
+            code_execution_config=False,
+            max_consecutive_auto_reply=3,
+        )
         result = await user_proxy.a_initiate_chat(coder, message=task.description, max_turns=3)
         return AgentResult(content=str(result.summary), framework="autogen", success=True)
 

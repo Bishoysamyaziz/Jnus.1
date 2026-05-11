@@ -28,7 +28,9 @@ class AiderAgent(BaseAgent):
                 success=False,
                 error="Aider not installed",
             )
-        model = Model("gpt-4")
+
+        cfg = self.get_llm_config()
+        model = Model(cfg["model"])
         coder = Coder.create(main_model=model, auto_commits=False)
         result = coder.run(task.description)
         return AgentResult(content=str(result), framework="aider", success=True)

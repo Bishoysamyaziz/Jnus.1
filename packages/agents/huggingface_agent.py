@@ -27,7 +27,9 @@ class HuggingFaceAgent(BaseAgent):
                 success=False,
                 error="transformers not installed",
             )
-        pipe = pipeline("text-generation", model="gpt2")
+
+        cfg = self.get_llm_config()
+        pipe = pipeline("text-generation", model=cfg["model"])
         result = pipe(task.description, max_length=200)
         return AgentResult(content=str(result[0]["generated_text"]), framework="huggingface", success=True)
 

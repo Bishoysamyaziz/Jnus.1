@@ -138,6 +138,23 @@ services:
     networks:
       - oneagent-net
 
+  # ── Celery Worker (Long-Running Tasks) ──────────────────────────
+  worker:
+    build:
+      context: .
+      dockerfile: Dockerfile.api
+    command: celery -A packages.workers.worker worker --loglevel=info --concurrency=4 -Q oneagent
+    environment:
+      - REDIS_URL=redis://redis:6379
+      - PYTHONPATH=/app
+    env_file: .env
+    depends_on:
+      - redis
+      - windsurf-api
+    restart: unless-stopped
+    networks:
+      - oneagent-net
+
 volumes:
   redis-data:
   postgres-data:

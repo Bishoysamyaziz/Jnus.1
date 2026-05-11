@@ -20,7 +20,7 @@ class SemanticKernelAgent(BaseAgent):
     async def execute(self, task: Task, memory: MemoryContext) -> AgentResult:
         try:
             from semantic_kernel import Kernel
-            from semantic_kernel.connectors.ai.open_ai import AzureChatCompletion
+            from semantic_kernel.connectors.ai.open_ai import OpenAIChatCompletion
         except ImportError:
             return AgentResult(
                 content=f"[SemanticKernel] Framework not installed. Install with: pip install semantic-kernel\nTask: {task.description}",
@@ -28,8 +28,10 @@ class SemanticKernelAgent(BaseAgent):
                 success=False,
                 error="SemanticKernel not installed",
             )
+
+        cfg = self.get_llm_config()
         kernel = Kernel()
-        kernel.add_service(AzureChatCompletion(deployment_name="gpt-4", endpoint="https://example.com", api_key="mock"))
+        kernel.add_service(OpenAIChatCompletion(ai_model_id=cfg["model"], api_key=cfg["api_key"], base_url=cfg["base_url"]))
         result = await kernel.invoke_prompt(task.description)
         return AgentResult(content=str(result), framework="semantic_kernel", success=True)
 

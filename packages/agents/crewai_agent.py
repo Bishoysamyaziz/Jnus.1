@@ -22,6 +22,7 @@ class CrewAIAgent(BaseAgent):
     async def execute(self, task: Task, memory: MemoryContext) -> AgentResult:
         try:
             from crewai import Crew, Process, Agent as CrewAgent, Task as CrewTask
+            from langchain_openai import ChatOpenAI
         except ImportError:
             return AgentResult(
                 content=f"[CrewAI] Framework not installed. Install with: pip install crewai\nTask: {task.description}",
@@ -30,9 +31,12 @@ class CrewAIAgent(BaseAgent):
                 error="CrewAI not installed",
             )
 
-        researcher = CrewAgent(role="Researcher", goal="Gather information", backstory="Expert researcher")
-        writer = CrewAgent(role="Writer", goal="Write comprehensive content", backstory="Expert writer")
-        reviewer = CrewAgent(role="Reviewer", goal="Review and improve", backstory="Expert reviewer")
+        cfg = self.get_llm_config()
+        llm = ChatOpenAI(model=cfg["model"], base_url=cfg["base_url"], api_key=cfg["api_key"])
+
+        researcher = CrewAgent(role="Researcher", goal="Gather information",  backstory="Expert researcher", llm=llm)
+        writer     = CrewAgent(role="Writer",     goal="Write clear content", backstory="Expert writer",     llm=llm)
+        reviewer   = CrewAgent(role="Reviewer",   goal="Review and improve",  backstory="Expert reviewer",   llm=llm)
 
         crew_tasks = [
             CrewTask(description=f"Research: {task.description}", agent=researcher),

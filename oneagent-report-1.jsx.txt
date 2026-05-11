@@ -1,0 +1,603 @@
+import { useState } from "react";
+
+const COLORS = {
+  bg: "#07080F",
+  surface: "#0D0F1C",
+  surfaceHi: "#131526",
+  border: "#1A1D35",
+  borderHi: "#252847",
+  accent: "#6C63FF",
+  accentGlow: "#6C63FF30",
+  green: "#3DDC97",
+  greenDim: "#3DDC9720",
+  red: "#FF5C7A",
+  redDim: "#FF5C7A20",
+  yellow: "#F5C542",
+  yellowDim: "#F5C54220",
+  blue: "#4FC3F7",
+  blueDim: "#4FC3F720",
+  orange: "#FF8A50",
+  orangeDim: "#FF8A5020",
+  text: "#E2E0F0",
+  textMuted: "#6B6880",
+  textDim: "#2E2D3A",
+};
+
+const sections = [
+  {
+    title: "✅ مكتمل تماماً",
+    color: COLORS.green,
+    dimColor: COLORS.greenDim,
+    items: [
+      {
+        label: "Frontend — OneAgentOS.jsx",
+        detail: "واجهة كاملة مع 24 framework، SSE streaming، history، sidebar — مرفوعة على Cloudflare Pages ✓",
+        tag: "LIVE",
+      },
+      {
+        label: "FastAPI Backend — packages/api/main.py",
+        detail: "API كامل: /v1/chat (SSE)، /v1/agents، /v1/history، /health، /metrics — rate limiting 60req/min — كود ممتاز",
+        tag: "CODED",
+      },
+      {
+        label: "Orchestrator — packages/core/orchestrator.py",
+        detail: "المحرك الرئيسي: classify → plan → dispatch → stream. يدير الـ sessions ويتعامل مع parallel execution",
+        tag: "CODED",
+      },
+      {
+        label: "24 Agent Wrappers — packages/agents/",
+        detail: "CrewAI, AutoGen, MetaGPT, LangChain, Aider, Letta, Mem0, CAMEL, BabyAGI, Swarm, وباقي الـ 24 — كل واحد فيه execute()، capabilities()، estimate_cost()",
+        tag: "CODED",
+      },
+      {
+        label: "WindsurfAPI — packages/windsurf-api/",
+        detail: "Proxy كامل مع 60+ test suite، dashboard، auth، SSE، tool emulation، rate limiting، drought mode",
+        tag: "INTEGRATED",
+      },
+      {
+        label: "LLM Router — packages/core/llm/router.py",
+        detail: "4 tiers: Ollama (free) → WindsurfAPI (near-free) → Claude Real → OpenAI Real. routing بالـ complexity صح",
+        tag: "CODED",
+      },
+      {
+        label: "Intent Classifier — packages/core/intent/classifier.py",
+        detail: "8 أنواع نوايا: CODE, RESEARCH, CREATIVE, DATA, AUTOMATION, CONVERSATION, PLANNING, EXECUTION — LLM-based مش keyword",
+        tag: "CODED",
+      },
+      {
+        label: "Memory System — packages/core/memory/",
+        detail: "3 طبقات: short_term (Redis)، long_term (Qdrant/embeddings)، skill_memory (pattern learning)",
+        tag: "CODED",
+      },
+      {
+        label: "Planning Engine — packages/core/planning/",
+        detail: "planner.py + task_graph.py — يبني خطة تنفيذ ويحدد dependencies بين المهام",
+        tag: "CODED",
+      },
+      {
+        label: "Docker Compose — Full Stack",
+        detail: "api + frontend + redis + postgres + qdrant + ollama + windsurf-api — كل service فيه healthcheck",
+        tag: "READY",
+      },
+      {
+        label: "Helm Charts — kubernetes/",
+        detail: "deployment.yaml، hpa.yaml، ingress.yaml، service.yaml — جاهز للـ Kubernetes",
+        tag: "READY",
+      },
+      {
+        label: "CI/CD — .github/workflows/ci.yml",
+        detail: "GitHub Actions: test → lint → build → deploy pipeline",
+        tag: "READY",
+      },
+      {
+        label: "11 Test Suites — packages/core/tests/",
+        detail: "test_orchestrator، test_intent، test_agent_selector، test_llm_router، test_memory_*, test_planner، test_task_graph، test_api",
+        tag: "WRITTEN",
+      },
+      {
+        label: "Monitoring — k8s/grafana + prometheus",
+        detail: "grafana-dashboard.json + prometheus-config.yaml — metrics جاهزة",
+        tag: "READY",
+      },
+      {
+        label: ".env.example — متكامل",
+        detail: "يشمل WINDSURF_API_URL، WINDSURF_API_KEY، OPENAI_BASE_URL، ANTHROPIC_BASE_URL — كلهم موجودين",
+        tag: "DONE",
+      },
+    ],
+  },
+  {
+    title: "🔴 مشاكل حرجة — لازم تتصلح",
+    color: COLORS.red,
+    dimColor: COLORS.redDim,
+    items: [
+      {
+        label: "❌ الـ Agents بتكلم OpenAI مباشرة — مش WindsurfAPI",
+        detail: 'LangChain: ChatOpenAI(model="gpt-4") بدون base_url\nAutoGen: config_list = [{"model": "gpt-4", "api_key": "mock"}]\nالحل: كل agent لازم يقرأ OPENAI_BASE_URL من البيئة أو يمر على HybridLLMRouter قبل ما يشتغل',
+        tag: "BUG",
+      },
+      {
+        label: "❌ Orchestrator مش بيستخدم LLM Router",
+        detail: "orchestrator.py بيبعت للـ agent مباشرة بدون ما يمر على router.py — يعني الـ tiers (Ollama→Windsurf→Claude) مش شغّالة فعلاً\nالحل: نضيف router.route() قبل كل agent.execute()",
+        tag: "BUG",
+      },
+      {
+        label: "❌ Backend مش مرفوع على الـ cloud",
+        detail: "docker-compose يشتغل locally بس. الـ Frontend على Cloudflare ومش متوصل بـ API حقيقي — الأرقام (24, 62, 11, 8) hardcoded في JSX\nالحل: رفع الـ API على Railway أو Render أو Fly.io",
+        tag: "NOT DEPLOYED",
+      },
+      {
+        label: "❌ brains-core-extracted/ — كل الفولدرات فارغة",
+        detail: "24 فولدر (crewai, langchain, autogen…) كلهم 0 bytes — الـ frameworks مش موجودة كـ source code\nالحل: extract.sh لازم يتشغّل أو تحذف الفولدرات الفارغة",
+        tag: "EMPTY",
+      },
+      {
+        label: "❌ CODEIUM_AUTH_TOKEN مش في .env.example",
+        detail: "WindsurfAPI محتاج الـ token ده عشان يشتغل — مش موجود في .env.example\nالحل: نضيف CODEIUM_AUTH_TOKEN= في .env.example مع تعليق",
+        tag: "MISSING",
+      },
+      {
+        label: "❌ packages/workers/__init__.py — فارغ",
+        detail: "Celery workers مش متعملة — الـ async tasks مش هتشتغل في production\nالحل: نكتب worker.py أساسي للـ long-running agent tasks",
+        tag: "EMPTY",
+      },
+    ],
+  },
+  {
+    title: "🟡 ناقص للـ Production العالمي",
+    color: COLORS.yellow,
+    dimColor: COLORS.yellowDim,
+    items: [
+      {
+        label: "Auth System — JWT + User Management",
+        detail: "مفيش login، مفيش JWT tokens، مفيش user isolation\nالحل: FastAPI-Users أو Auth0 — Phase 6",
+        tag: "MISSING",
+      },
+      {
+        label: "Frontend ↔ Backend Connection",
+        detail: "الـ JSX بيعرض أرقام ثابتة (24, 62, 11, 8) — مش بتجي من /v1/agents\nالحل: NEXT_PUBLIC_API_URL يشاور على الـ deployed API",
+        tag: "DISCONNECTED",
+      },
+      {
+        label: "Database في الـ Cloud",
+        detail: "Postgres + Redis + Qdrant موجودين في docker-compose locally بس\nالحل: Supabase (Postgres) + Upstash (Redis) + Qdrant Cloud",
+        tag: "LOCAL ONLY",
+      },
+      {
+        label: "Cloudflare D1 — wrangler.toml",
+        detail: 'database_id = "" — فارغ\nالحل: wrangler d1 create oneagent-os ثم حط الـ ID',
+        tag: "EMPTY",
+      },
+      {
+        label: "IntentClassifier Fallback",
+        detail: "بيحاول Ollama أول، لو فشل مفيش fallback للـ WindsurfAPI\nالحل: نضيف WindsurfAPI كـ fallback في _create_default_llm()",
+        tag: "INCOMPLETE",
+      },
+      {
+        label: "Rate Limiting — Production Grade",
+        detail: "الحالي in-memory فقط — مش هينفع في multi-instance\nالحل: Redis-based rate limiter (slowapi + redis)",
+        tag: "IN-MEMORY ONLY",
+      },
+      {
+        label: "requirements.txt — Frameworks غير مثبتة",
+        detail: "crewai, pyautogen, metagpt, etc. — محتاجة تتضاف في requirements.txt بالـ versions الصح\nالحل: نثبّت الـ required frameworks وليس كلهم",
+        tag: "INCOMPLETE",
+      },
+      {
+        label: "Dockerfile.api",
+        detail: "لازم يشغّل uvicorn packages.api.main:app — محتاج نتحقق إن الـ PYTHONPATH صح",
+        tag: "VERIFY",
+      },
+      {
+        label: "Billing / Usage Tracking",
+        detail: "مفيش usage tracking لكل user\nالحل: cost_estimate من كل agent + Redis counter per user_id",
+        tag: "MISSING",
+      },
+      {
+        label: "WebSocket بجانب SSE",
+        detail: "SSE موجود — لكن WebSocket أفضل لـ bidirectional communication\nالحل: اختياري، SSE يكفي للـ MVP",
+        tag: "OPTIONAL",
+      },
+    ],
+  },
+  {
+    title: "🟢 WindsurfAPI — تقييم الربط",
+    color: COLORS.blue,
+    dimColor: COLORS.blueDim,
+    items: [
+      {
+        label: "✅ docker-compose — windsurf-api service",
+        detail: "موجود بشكل صح: build + healthcheck + volumes + network — ممتاز",
+        tag: "✓ CORRECT",
+      },
+      {
+        label: "✅ LLM Router — Tier 2 هو WindsurfAPI",
+        detail: "router.py يحطه في المرتبة الثانية بعد Ollama — complexity 0.4 إلى 0.85 — صح",
+        tag: "✓ CORRECT",
+      },
+      {
+        label: "✅ .env.example — متوصل",
+        detail: "WINDSURF_API_URL، WINDSURF_API_KEY، OPENAI_BASE_URL، ANTHROPIC_BASE_URL — كلهم موجودين وصح",
+        tag: "✓ CORRECT",
+      },
+      {
+        label: "✅ 60+ Test Suite في packages/windsurf-api/test/",
+        detail: "messages، models، rate-limit، tool-emulation، streaming، auth — شامل ومتكامل",
+        tag: "✓ COMPLETE",
+      },
+      {
+        label: "❌ Agents مش بتمر على WindsurfAPI",
+        detail: "LangChain + AutoGen + باقي الـ agents بيعمل LLM call مباشر بـ gpt-4 hardcoded — الـ OPENAI_BASE_URL مش بيتقرأ\nالحل المطلوب: نضيف llm_config builder في base_agent.py يقرأ البيئة",
+        tag: "✗ BYPASSED",
+      },
+      {
+        label: "❌ CODEIUM_AUTH_TOKEN مش موثّق",
+        detail: "الـ WindsurfAPI محتاج الـ token ده كأول خطوة — مش موجود في .env.example\nالحل: نضيف CODEIUM_AUTH_TOKEN= # from windsurf.com/show-auth-token",
+        tag: "✗ MISSING",
+      },
+    ],
+  },
+];
+
+const tagColors = {
+  "LIVE": { bg: "#3DDC9730", color: "#3DDC97" },
+  "CODED": { bg: "#6C63FF30", color: "#9D93FF" },
+  "INTEGRATED": { bg: "#4FC3F730", color: "#4FC3F7" },
+  "READY": { bg: "#3DDC9720", color: "#3DDC97" },
+  "WRITTEN": { bg: "#6C63FF20", color: "#9D93FF" },
+  "DONE": { bg: "#3DDC9720", color: "#3DDC97" },
+  "BUG": { bg: "#FF5C7A40", color: "#FF5C7A" },
+  "NOT DEPLOYED": { bg: "#FF5C7A30", color: "#FF5C7A" },
+  "EMPTY": { bg: "#FF8A5030", color: "#FF8A50" },
+  "MISSING": { bg: "#FF5C7A25", color: "#FF8080" },
+  "DISCONNECTED": { bg: "#F5C54230", color: "#F5C542" },
+  "LOCAL ONLY": { bg: "#F5C54225", color: "#F5C542" },
+  "INCOMPLETE": { bg: "#F5C54220", color: "#F5C542" },
+  "IN-MEMORY ONLY": { bg: "#F5C54220", color: "#F5C542" },
+  "OPTIONAL": { bg: "#6C63FF15", color: "#7B6EF6" },
+  "VERIFY": { bg: "#F5C54215", color: "#F5C542" },
+  "✓ CORRECT": { bg: "#3DDC9730", color: "#3DDC97" },
+  "✓ COMPLETE": { bg: "#3DDC9730", color: "#3DDC97" },
+  "✗ BYPASSED": { bg: "#FF5C7A35", color: "#FF5C7A" },
+  "✗ MISSING": { bg: "#FF5C7A30", color: "#FF5C7A" },
+};
+
+const stats = [
+  { label: "مكتمل", value: "15", sub: "عنصر", color: COLORS.green },
+  { label: "مشاكل حرجة", value: "6", sub: "bug", color: COLORS.red },
+  { label: "ناقص للـ production", value: "10", sub: "عنصر", color: COLORS.yellow },
+  { label: "WindsurfAPI ربط صح", value: "4/6", sub: "نقطة", color: COLORS.blue },
+];
+
+export default function Report() {
+  const [open, setOpen] = useState({});
+  const toggle = (key) => setOpen(o => ({ ...o, [key]: !o[key] }));
+
+  return (
+    <div style={{
+      minHeight: "100vh",
+      background: COLORS.bg,
+      color: COLORS.text,
+      fontFamily: "'IBM Plex Mono', 'Fira Code', monospace",
+      direction: "rtl",
+    }}>
+      {/* Header */}
+      <div style={{
+        background: `linear-gradient(135deg, #0D0F1C 0%, #0A0B18 100%)`,
+        borderBottom: `1px solid ${COLORS.border}`,
+        padding: "32px 24px 24px",
+      }}>
+        <div style={{ maxWidth: 860, margin: "0 auto" }}>
+          <div style={{
+            display: "flex",
+            alignItems: "center",
+            gap: 12,
+            marginBottom: 8,
+          }}>
+            <div style={{
+              width: 10, height: 10,
+              borderRadius: "50%",
+              background: COLORS.green,
+              boxShadow: `0 0 8px ${COLORS.green}`,
+              animation: "pulse 2s infinite",
+            }} />
+            <span style={{ fontSize: 11, color: COLORS.green, letterSpacing: 3, textTransform: "uppercase" }}>
+              OneAgent OS — تقرير حالة المشروع
+            </span>
+          </div>
+          <h1 style={{
+            fontSize: 28,
+            fontWeight: 700,
+            margin: "0 0 6px",
+            color: COLORS.text,
+            letterSpacing: -0.5,
+          }}>
+            تقرير شامل — ما اتعمل، ما ناقص، وحالة WindsurfAPI
+          </h1>
+          <p style={{ color: COLORS.textMuted, fontSize: 13, margin: 0 }}>
+            بناءً على تحليل الكود الفعلي — Jnus.1-main — 11 مايو 2026
+          </p>
+        </div>
+      </div>
+
+      {/* Stats Bar */}
+      <div style={{
+        borderBottom: `1px solid ${COLORS.border}`,
+        padding: "20px 24px",
+      }}>
+        <div style={{
+          maxWidth: 860, margin: "0 auto",
+          display: "grid",
+          gridTemplateColumns: "repeat(4, 1fr)",
+          gap: 16,
+        }}>
+          {stats.map((s, i) => (
+            <div key={i} style={{
+              background: COLORS.surface,
+              border: `1px solid ${COLORS.border}`,
+              borderRadius: 10,
+              padding: "16px 20px",
+              textAlign: "center",
+            }}>
+              <div style={{ fontSize: 30, fontWeight: 800, color: s.color, lineHeight: 1 }}>{s.value}</div>
+              <div style={{ fontSize: 10, color: s.color, opacity: 0.7, marginTop: 2 }}>{s.sub}</div>
+              <div style={{ fontSize: 12, color: COLORS.textMuted, marginTop: 6 }}>{s.label}</div>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* Sections */}
+      <div style={{ maxWidth: 860, margin: "0 auto", padding: "24px 24px 48px" }}>
+        {sections.map((sec, si) => (
+          <div key={si} style={{ marginBottom: 32 }}>
+            {/* Section Header */}
+            <div style={{
+              display: "flex",
+              alignItems: "center",
+              gap: 12,
+              marginBottom: 14,
+              paddingBottom: 12,
+              borderBottom: `1px solid ${sec.color}40`,
+            }}>
+              <div style={{ width: 3, height: 22, background: sec.color, borderRadius: 2, flexShrink: 0 }} />
+              <h2 style={{
+                fontSize: 15,
+                fontWeight: 700,
+                color: sec.color,
+                margin: 0,
+                letterSpacing: 0.5,
+              }}>
+                {sec.title}
+              </h2>
+              <span style={{
+                marginRight: "auto",
+                fontSize: 11,
+                color: COLORS.textMuted,
+                background: COLORS.surface,
+                border: `1px solid ${COLORS.border}`,
+                borderRadius: 20,
+                padding: "2px 10px",
+              }}>
+                {sec.items.length} عنصر
+              </span>
+            </div>
+
+            {/* Items */}
+            <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+              {sec.items.map((item, ii) => {
+                const key = `${si}-${ii}`;
+                const isOpen = open[key];
+                const tc = tagColors[item.tag] || { bg: COLORS.surfaceHi, color: COLORS.textMuted };
+
+                return (
+                  <div
+                    key={ii}
+                    style={{
+                      background: isOpen ? sec.dimColor : COLORS.surface,
+                      border: `1px solid ${isOpen ? sec.color + "50" : COLORS.border}`,
+                      borderRadius: 10,
+                      overflow: "hidden",
+                      transition: "all 0.2s",
+                      cursor: "pointer",
+                    }}
+                    onClick={() => toggle(key)}
+                  >
+                    {/* Item Header */}
+                    <div style={{
+                      display: "flex",
+                      alignItems: "center",
+                      gap: 12,
+                      padding: "12px 16px",
+                    }}>
+                      <span style={{
+                        fontSize: 11,
+                        fontWeight: 700,
+                        background: tc.bg,
+                        color: tc.color,
+                        borderRadius: 5,
+                        padding: "2px 8px",
+                        flexShrink: 0,
+                        letterSpacing: 0.5,
+                      }}>
+                        {item.tag}
+                      </span>
+                      <span style={{
+                        fontSize: 13,
+                        fontWeight: 600,
+                        color: COLORS.text,
+                        flex: 1,
+                      }}>
+                        {item.label}
+                      </span>
+                      <span style={{
+                        fontSize: 16,
+                        color: COLORS.textMuted,
+                        transform: isOpen ? "rotate(90deg)" : "rotate(0deg)",
+                        transition: "transform 0.2s",
+                      }}>
+                        ›
+                      </span>
+                    </div>
+
+                    {/* Detail */}
+                    {isOpen && (
+                      <div style={{
+                        padding: "0 16px 14px 16px",
+                        borderTop: `1px solid ${sec.color}20`,
+                      }}>
+                        {item.detail.split("\n").map((line, li) => (
+                          <p key={li} style={{
+                            margin: li === 0 ? "12px 0 4px" : "4px 0",
+                            fontSize: 12,
+                            color: line.startsWith("الحل") ? sec.color : COLORS.textMuted,
+                            lineHeight: 1.7,
+                            fontFamily: line.startsWith("الحل") ? "inherit" : "'IBM Plex Mono', monospace",
+                          }}>
+                            {line}
+                          </p>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        ))}
+
+        {/* Priority Action Plan */}
+        <div style={{
+          background: COLORS.surface,
+          border: `1px solid ${COLORS.accent}40`,
+          borderRadius: 14,
+          padding: "24px",
+          marginTop: 8,
+        }}>
+          <div style={{
+            display: "flex", alignItems: "center", gap: 10, marginBottom: 20,
+            borderBottom: `1px solid ${COLORS.border}`, paddingBottom: 14,
+          }}>
+            <div style={{ width: 3, height: 22, background: COLORS.accent, borderRadius: 2 }} />
+            <h2 style={{ fontSize: 15, fontWeight: 700, color: COLORS.accent, margin: 0 }}>
+              🎯 خطة الإصلاح — الأولويات بالترتيب
+            </h2>
+          </div>
+
+          {[
+            {
+              num: "01",
+              title: "إصلاح الـ Agent LLM Config (يوم واحد)",
+              color: COLORS.red,
+              steps: [
+                "أضف get_llm_config() في base_agent.py تقرأ OPENAI_BASE_URL",
+                "عدّل LangChain: ChatOpenAI(base_url=os.getenv('OPENAI_BASE_URL'))",
+                "عدّل AutoGen: config_list يقرأ من البيئة مش hardcoded",
+              ],
+            },
+            {
+              num: "02",
+              title: "ربط Orchestrator بالـ LLM Router (يوم واحد)",
+              color: COLORS.red,
+              steps: [
+                "في orchestrator.py قبل agent.execute() → اعمل tier = await router.route(intent, complexity)",
+                "مرّر الـ tier.base_url للـ agent عشان يستخدمه",
+              ],
+            },
+            {
+              num: "03",
+              title: "أضف CODEIUM_AUTH_TOKEN في .env.example (ساعة)",
+              color: COLORS.orange,
+              steps: [
+                "CODEIUM_AUTH_TOKEN= # from windsurf.com/show-auth-token",
+                "WINDSURF_DASHBOARD_PASSWORD= # اختياري",
+              ],
+            },
+            {
+              num: "04",
+              title: "ارفع الـ Backend على Railway (يومين)",
+              color: COLORS.yellow,
+              steps: [
+                "railway up من root الـ project",
+                "حط DATABASE_URL + REDIS_URL + QDRANT_URL من Supabase / Upstash / Qdrant Cloud",
+                "في Cloudflare Pages: NEXT_PUBLIC_API_URL = https://your-railway-url",
+              ],
+            },
+            {
+              num: "05",
+              title: "وصّل Frontend بالـ API (يوم واحد)",
+              color: COLORS.yellow,
+              steps: [
+                "الأرقام (24, 62, 11, 8) تيجي من /v1/agents و /metrics",
+                "fetch() من NEXT_PUBLIC_API_URL في useEffect",
+              ],
+            },
+          ].map((step, i) => (
+            <div key={i} style={{
+              display: "flex",
+              gap: 16,
+              marginBottom: 18,
+              padding: "14px 16px",
+              background: COLORS.surfaceHi,
+              borderRadius: 10,
+              border: `1px solid ${COLORS.border}`,
+            }}>
+              <div style={{
+                fontSize: 24,
+                fontWeight: 800,
+                color: step.color,
+                opacity: 0.4,
+                lineHeight: 1,
+                flexShrink: 0,
+                minWidth: 32,
+              }}>
+                {step.num}
+              </div>
+              <div>
+                <div style={{ fontSize: 13, fontWeight: 700, color: step.color, marginBottom: 8 }}>
+                  {step.title}
+                </div>
+                {step.steps.map((s, si) => (
+                  <div key={si} style={{
+                    fontSize: 12,
+                    color: COLORS.textMuted,
+                    marginBottom: 4,
+                    paddingRight: 12,
+                    borderRight: `2px solid ${step.color}40`,
+                    lineHeight: 1.6,
+                  }}>
+                    {s}
+                  </div>
+                ))}
+              </div>
+            </div>
+          ))}
+
+          <div style={{
+            marginTop: 8,
+            padding: "12px 16px",
+            background: `${COLORS.green}15`,
+            border: `1px solid ${COLORS.green}30`,
+            borderRadius: 8,
+            fontSize: 12,
+            color: COLORS.green,
+            textAlign: "center",
+          }}>
+            بعد الخطوات الـ 5 دي — OneAgent OS هيبقى production-ready عالمي حقيقي 🚀
+          </div>
+        </div>
+      </div>
+
+      <style>{`
+        @keyframes pulse {
+          0%, 100% { opacity: 1; }
+          50% { opacity: 0.4; }
+        }
+        * { box-sizing: border-box; }
+        ::-webkit-scrollbar { width: 6px; }
+        ::-webkit-scrollbar-track { background: #07080F; }
+        ::-webkit-scrollbar-thumb { background: #1A1D35; border-radius: 3px; }
+      `}</style>
+    </div>
+  );
+}

@@ -32,56 +32,61 @@ class IntentClassifier:
         self._cache: dict[str, Intent] = {}
 
     def _create_default_llm(self):
-        """Create a default LLM client based on environment"""
-        # Try Ollama first (local, free)
-        ollama_url = os.getenv("OLLAMA_URL", "http://localhost:11434")
-        ollama_model = os.getenv("OLLAMA_MODEL", "llama3.2")
+        import os
 
-        class OllamaClient:
-            def __init__(self, url: str, model: str):
-                self.url = url
-                self.model = model
+        ollama_url   = os.getenv("OLLAMA_URL",        "http://ollama:11434")
+        ollama_model = os.getenv("OLLAMA_MODEL",       "llama3.2")
+        windsurf_url = os.getenv("WINDSURF_API_URL",   "http://windsurf-api:3003")
+        windsurf_key = os.getenv("WINDSURF_API_KEY",   "")
+        anthropic_key = os.getenv("ANTHROPIC_API_KEY", "")
+
+        class SmartLLMClient:
+            """
+            3-tier fallback للـ intent classification:
+            1. Ollama  (مجاني محلي — أسرع)
+            2. WindsurfAPI (مجاني cloud — fallback)
+            3. Keyword matching (بدون LLM — آخر حل)
+            """
 
             async def generate(self, prompt: str) -> str:
                 import httpx
+
+                # ── Tier 1: Ollama ──────────────────────────────────
                 try:
-                    async with httpx.AsyncClient(timeout=30) as client:
-                        resp = await client.post(
-                            f"{self.url}/api/generate",
-                            json={
-                                "model": self.model,
-                                "prompt": prompt,
-                                "stream": False,
-                                "options": {"temperature": 0.1, "num_predict": 512},
-                            },
+                    async with httpx.AsyncClient(timeout=8) as client:
+                        r = await client.post(
+                            f"{ollama_url}/api/generate",
+                            json={"model": ollama_model, "prompt": prompt,
+                                  "stream": False, "options": {"temperature": 0.1, "num_predict": 256}},
                         )
-                        if resp.status_code == 200:
-                            return resp.json().get("response", "")
+                        if r.status_code == 200:
+                            return r.json().get("response", "")
                 except Exception:
                     pass
-                # Fallback: return a basic classification
-                return self._fallback_classify(prompt)
 
-            def _fallback_classify(self, prompt: str) -> str:
-                """Simple keyword-based fallback when LLM is unavailable"""
-                text = prompt.lower()
-                if any(w in text for w in ["code", "كود", "api", "function", "برمجة", "برنامج"]):
-                    return '{"intent": "CODE", "confidence": 0.85, "sub_tasks": ["write_code"]}'
-                if any(w in text for w in ["research", "بحث", "search", "ابحث", "حلل"]):
-                    return '{"intent": "RESEARCH", "confidence": 0.85, "sub_tasks": ["research"]}'
-                if any(w in text for w in ["data", "بيانات", "تحليل", "csv", "dataset"]):
-                    return '{"intent": "DATA", "confidence": 0.85, "sub_tasks": ["analyze_data"]}'
-                if any(w in text for w in ["plan", "خطة", "خطط", "مشروع", "project"]):
-                    return '{"intent": "PLANNING", "confidence": 0.85, "sub_tasks": ["plan"]}'
-                if any(w in text for w in ["automate", "اتمتة", "automatic", "تلقائي"]):
-                    return '{"intent": "AUTOMATION", "confidence": 0.85, "sub_tasks": ["automate"]}'
-                if any(w in text for w in ["creative", "إبداع", "write", "اكتب", "design"]):
-                    return '{"intent": "CREATIVE", "confidence": 0.85, "sub_tasks": ["create"]}'
-                if any(w in text for w in ["hello", "hi", "مرحبا", "اهلا", "كيف"]):
-                    return '{"intent": "CONVERSATION", "confidence": 0.9, "sub_tasks": []}'
-                return '{"intent": "CODE", "confidence": 0.6, "sub_tasks": ["execute"]}'
+                # ── Tier 2: WindsurfAPI ─────────────────────────────
+                try:
+                    async with httpx.AsyncClient(timeout=20) as client:
+                        r = await client.post(
+                            f"{windsurf_url}/v1/chat/completions",
+                            headers={"Authorization": f"Bearer {windsurf_key}",
+                                     "Content-Type": "application/json"},
+                            json={
+                                "model": "claude-sonnet-4-6",
+                                "messages": [{"role": "user", "content": prompt}],
+                                "max_tokens": 256,
+                                "temperature": 0.1,
+                            },
+                        )
+                        if r.status_code == 200:
+                            return r.json()["choices"][0]["message"]["content"]
+                except Exception:
+                    pass
 
-        return OllamaClient(ollama_url, ollama_model)
+                # ── Tier 3: keyword fallback (بدون LLM) ────────────
+                return ""
+
+        return SmartLLMClient()
 
     async def classify(self, user_input: str, context: dict | None = None) -> Intent:
         """Classify user input into an Intent.

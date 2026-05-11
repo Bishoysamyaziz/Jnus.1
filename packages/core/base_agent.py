@@ -26,6 +26,19 @@ class BaseAgent(ABC):
     max_iterations: int = 20  # max loop iterations
     human_in_loop_threshold: int = 10  # after 10 iterations → ask user
 
+    def get_llm_config(self) -> dict:
+        """
+        Single source of truth للـ LLM config.
+        لما OPENAI_BASE_URL متضبّطة على WindsurfAPI،
+        كل agent هيستخدم WindsurfAPI أوتوماتيك.
+        """
+        import os
+        return {
+            "base_url": os.getenv("OPENAI_BASE_URL", "https://api.openai.com/v1"),
+            "api_key":  os.getenv("OPENAI_API_KEY",  "sk-dummy"),
+            "model":    os.getenv("DEFAULT_MODEL",   "claude-sonnet-4-6"),
+        }
+
     @abstractmethod
     async def execute(self, task: Task, memory: MemoryContext) -> AgentResult:
         """Execute a task using this framework"""

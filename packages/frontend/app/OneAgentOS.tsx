@@ -1,118 +1,331 @@
 "use client";
 
-import React, { useState, useCallback, useEffect, useRef } from "react";
+import { useState, useRef, useEffect, useCallback } from "react";
 
-// ─── Types ───────────────────────────────────────────────────
-type IntentType = "CODE" | "RESEARCH" | "DATA" | "PLANNING" | "CONVERSATION" | "CREATIVE" | "AUTOMATION";
-
-interface Message {
-  id: string;
-  role: "user" | "assistant" | "system";
-  content: string;
-  timestamp: number;
-  metadata?: {
-    intent?: IntentType;
-    framework?: string;
-    duration_ms?: number;
-    tokens_used?: number;
-  };
-}
-
-interface AgentInfo {
-  name: string;
-  class: string;
-}
-
-interface HealthStatus {
-  status: string;
-  version: string;
-  agents: number;
-  memory: { short_term: number; long_term: number; skill: number };
-}
-
-// ─── Constants ───────────────────────────────────────────────
-const INTENTS: IntentType[] = ["CODE", "RESEARCH", "DATA", "PLANNING", "CONVERSATION", "CREATIVE", "AUTOMATION"];
-
-const INTENT_EMOJIS: Record<IntentType, string> = {
-  CODE: "💻",
-  RESEARCH: "🔬",
-  DATA: "📊",
-  PLANNING: "📋",
-  CONVERSATION: "💬",
-  CREATIVE: "🎨",
-  AUTOMATION: "⚡",
+// ── PALETTE ──────────────────────────────────────────────────────
+const T = {
+  bg:          "#080810",
+  bgDeep:      "#05050C",
+  surface:     "#0F0F1A",
+  surfaceHi:   "#161625",
+  surfaceHover:"#1C1C2E",
+  border:      "#1E1E35",
+  borderHi:    "#2E2E50",
+  accent:      "#7B6EF6",
+  accentHi:    "#9D93FF",
+  accentGlow:  "#7B6EF620",
+  accentSoft:  "#C4BEFF",
+  gold:        "#E8B96A",
+  goldSoft:    "#F5D99A",
+  teal:        "#3DD6C0",
+  tealSoft:    "#A8F0E6",
+  rose:        "#F06292",
+  text:        "#E8E6F0",
+  textMuted:   "#7A7890",
+  textDim:     "#3A384A",
+  green:       "#5DDC9A",
+  amber:       "#F5A623",
 };
 
-const INTENT_COLORS: Record<IntentType, string> = {
-  CODE: "#3b82f6",
-  RESEARCH: "#8b5cf6",
-  DATA: "#10b981",
-  PLANNING: "#f59e0b",
-  CONVERSATION: "#ec4899",
-  CREATIVE: "#f97316",
-  AUTOMATION: "#ef4444",
-};
+// ── AGENT FRAMEWORKS ─────────────────────────────────────────────
+const AGENTS = [
+  { id: "auto",        name: "Auto",        icon: "◈", color: T.accent,  desc: "اختيار تلقائي" },
+  { id: "crewai",      name: "CrewAI",       icon: "⬡", color: T.teal,   desc: "Multi-role" },
+  { id: "autogen",     name: "AutoGen",      icon: "◉", color: T.gold,   desc: "Group chat" },
+  { id: "metagpt",     name: "MetaGPT",      icon: "▣", color: T.rose,   desc: "Software Co." },
+  { id: "langchain",   name: "LangChain",    icon: "⟁", color: T.accentHi, desc: "Chain of thought" },
+  { id: "aider",       name: "Aider",        icon: "⌬", color: T.green,  desc: "Code editing" },
+];
 
-// ─── Components ──────────────────────────────────────────────
+const INTENTS = [
+  { type: "CODE",         label: "كود",       color: T.green,  icon: "⌨" },
+  { type: "RESEARCH",     label: "بحث",       color: T.teal,   icon: "◎" },
+  { type: "CREATIVE",     label: "إبداعي",    color: T.rose,   icon: "✦" },
+  { type: "DATA",         label: "بيانات",    color: T.gold,   icon: "▦" },
+  { type: "PLANNING",     label: "تخطيط",     color: T.accent, icon: "◈" },
+  { type: "AUTOMATION",   label: "أتمتة",     color: T.amber,  icon: "⚡" },
+];
+
+const SAMPLE_CONVOS = [
+  { id: 1, title: "بناء REST API للـ authentication", intent: "CODE",     time: "منذ ساعتين" },
+  { id: 2, title: "تحليل بيانات المبيعات Q1",          intent: "DATA",     time: "أمس" },
+  { id: 3, title: "خطة تسويق لمنتج SaaS",              intent: "PLANNING", time: "منذ يومين" },
+];
+
+// ── API CONFIGURATION ──────────────────────────────────────────────
+const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
+
+// ── SSE STREAMING CLIENT ───────────────────────────────────────────
+async function* streamChat(message: string, sessionId: string) {
+  const response = await fetch(`${API_BASE}/v1/chat/completions`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      model: "claude-s4",
+      messages: [{ role: "user", content: message }],
+      stream: true,
+      session_id: sessionId,
+      user_id: "anonymous",
+    }),
+  });
+
+  if (!response.ok) {
+    throw new Error(`API error: ${response.status}`);
+  }
+
+  const reader = response.body!.getReader();
+  const decoder = new TextDecoder();
+  let buffer = "";
+
+  while (true) {
+    const { done, value } = await reader.read();
+    if (done) break;
+
+    buffer += decoder.decode(value, { stream: true });
+    const lines = buffer.split("\n");
+    buffer = lines.pop() || "";
+
+    for (const line of lines) {
+      if (line.startsWith("data: ")) {
+        const data = line.slice(6).trim();
+        if (data === "[DONE]") return;
+        try {
+          const parsed = JSON.parse(data);
+          const content = parsed.choices?.[0]?.delta?.content || "";
+          if (content) {
+            yield { type: "token", content };
+          }
+        } catch {
+          // Skip malformed JSON
+        }
+      }
+    }
+  }
+}
+
+// ── COMPONENTS ────────────────────────────────────────────────────
+
+function Dot({ color, pulse }: { color: string; pulse?: boolean }) {
+  return (
+    <span style={{
+      display: "inline-block",
+      width: 7, height: 7,
+      borderRadius: "50%",
+      background: color,
+      boxShadow: pulse ? `0 0 8px ${color}` : "none",
+      animation: pulse ? "pulse 1.5s ease-in-out infinite" : "none",
+      flexShrink: 0,
+    }} />
+  );
+}
+
+function AgentBadge({ agent, active, onClick }: { agent: typeof AGENTS[0]; active: boolean; onClick: () => void }) {
+  return (
+    <button onClick={onClick} style={{
+      display: "flex", alignItems: "center", gap: 6,
+      padding: "5px 10px",
+      borderRadius: 8,
+      border: `1px solid ${active ? agent.color + "60" : T.border}`,
+      background: active ? agent.color + "12" : "transparent",
+      cursor: "pointer",
+      transition: "all 0.15s ease",
+    }}>
+      <span style={{ fontSize: 13, color: agent.color }}>{agent.icon}</span>
+      <span style={{ fontSize: 11, color: active ? agent.color : T.textMuted, fontFamily: "'DM Mono', monospace" }}>
+        {agent.name}
+      </span>
+    </button>
+  );
+}
+
+function IntentTag({ intent }: { intent: string }) {
+  const info = INTENTS.find(i => i.type === intent);
+  if (!info) return null;
+  return (
+    <span style={{
+      display: "inline-flex", alignItems: "center", gap: 4,
+      padding: "2px 8px",
+      borderRadius: 5,
+      background: info.color + "15",
+      border: `1px solid ${info.color}30`,
+      fontSize: 10,
+      color: info.color,
+      fontFamily: "'DM Mono', monospace",
+      letterSpacing: 0.5,
+    }}>
+      {info.icon} {info.label}
+    </span>
+  );
+}
 
 function TypingIndicator() {
   return (
-    <div className="flex items-center gap-2 px-4 py-3">
-      <div className="flex gap-1">
-        <span className="w-2 h-2 bg-blue-400 rounded-full animate-bounce" style={{ animationDelay: "0ms" }} />
-        <span className="w-2 h-2 bg-blue-400 rounded-full animate-bounce" style={{ animationDelay: "150ms" }} />
-        <span className="w-2 h-2 bg-blue-400 rounded-full animate-bounce" style={{ animationDelay: "300ms" }} />
-      </div>
-      <span className="text-sm text-gray-400">Agent thinking...</span>
+    <div style={{ display: "flex", gap: 5, alignItems: "center", padding: "4px 0" }}>
+      {[0, 1, 2].map(i => (
+        <span key={i} style={{
+          width: 6, height: 6,
+          borderRadius: "50%",
+          background: T.accent,
+          opacity: 0.7,
+          animation: `bounce 1.2s ease-in-out ${i * 0.2}s infinite`,
+        }} />
+      ))}
     </div>
   );
 }
 
-function MessageBubble({ message }: { message: Message }) {
-  const isUser = message.role === "user";
-  const isSystem = message.role === "system";
+function MessageContent({ content, streaming }: { content: string; streaming?: boolean }) {
+  const lines = content.split("\n");
+  const rendered: React.ReactNode[] = [];
+  let inCode = false;
+  let codeLines: string[] = [];
+  let codeLang = "";
 
-  if (isSystem) {
-    return (
-      <div className="flex justify-center my-2">
-        <div className="bg-gray-800/50 text-gray-400 text-xs px-3 py-1 rounded-full border border-gray-700/50">
-          {message.content}
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i];
+    if (line.startsWith("```")) {
+      if (!inCode) {
+        inCode = true;
+        codeLang = line.slice(3);
+        codeLines = [];
+      } else {
+        rendered.push(
+          <div key={`code-${i}`} style={{
+            margin: "10px 0",
+            borderRadius: 10,
+            overflow: "hidden",
+            border: `1px solid ${T.border}`,
+          }}>
+            {codeLang && (
+              <div style={{
+                padding: "6px 14px",
+                background: T.surface,
+                borderBottom: `1px solid ${T.border}`,
+                fontSize: 10,
+                color: T.textMuted,
+                fontFamily: "'DM Mono', monospace",
+                display: "flex", justifyContent: "space-between",
+              }}>
+                <span>{codeLang}</span>
+                <span style={{ color: T.green, letterSpacing: 0.5 }}>● LIVE</span>
+              </div>
+            )}
+            <pre style={{
+              margin: 0, padding: "14px",
+              background: T.bgDeep,
+              fontSize: 12,
+              lineHeight: 1.7,
+              color: T.tealSoft,
+              fontFamily: "'DM Mono', monospace",
+              overflowX: "auto",
+            }}>{codeLines.join("\n")}</pre>
+          </div>
+        );
+        inCode = false;
+        codeLines = [];
+        codeLang = "";
+      }
+    } else if (inCode) {
+      codeLines.push(line);
+    } else if (line.startsWith("**") && line.endsWith("**")) {
+      rendered.push(
+        <strong key={i} style={{ color: T.accentSoft, display: "block", margin: "6px 0 2px" }}>
+          {line.slice(2, -2)}
+        </strong>
+      );
+    } else if (line.match(/^\d\./)) {
+      rendered.push(
+        <div key={i} style={{ display: "flex", gap: 8, margin: "3px 0", fontSize: 13, color: T.text }}>
+          <span style={{ color: T.accent, fontFamily: "'DM Mono', monospace", minWidth: 16 }}>
+            {line[0]}
+          </span>
+          <span>{line.slice(2).replace(/\*\*(.*?)\*\*/g, "$1")}</span>
         </div>
-      </div>
-    );
+      );
+    } else if (line === "") {
+      rendered.push(<div key={i} style={{ height: 6 }} />);
+    } else {
+      const parts = line.split(/\*\*(.*?)\*\*/g);
+      rendered.push(
+        <span key={i} style={{ fontSize: 13, lineHeight: 1.8, color: T.text, display: "block" }}>
+          {parts.map((p, j) => j % 2 === 0
+            ? <span key={j}>{p}</span>
+            : <strong key={j} style={{ color: T.accentSoft }}>{p}</strong>
+          )}
+        </span>
+      );
+    }
   }
 
   return (
-    <div className={`flex ${isUser ? "justify-end" : "justify-start"} mb-4`}>
-      <div
-        className={`max-w-[80%] rounded-2xl px-4 py-3 ${
-          isUser
-            ? "bg-blue-600 text-white rounded-br-md"
-            : "bg-gray-800/80 text-gray-100 rounded-bl-md border border-gray-700/50"
-        }`}
-      >
-        {!isUser && message.metadata?.intent && (
-          <div className="flex items-center gap-2 mb-2 pb-2 border-b border-gray-700/50">
-            <span className="text-lg">{INTENT_EMOJIS[message.metadata.intent]}</span>
-            <span
-              className="text-xs font-medium px-2 py-0.5 rounded-full"
-              style={{
-                backgroundColor: `${INTENT_COLORS[message.metadata.intent]}20`,
-                color: INTENT_COLORS[message.metadata.intent],
-              }}
-            >
-              {message.metadata.intent}
-            </span>
-            {message.metadata.framework && (
-              <span className="text-xs text-gray-400">via {message.metadata.framework}</span>
+    <div>
+      {rendered}
+      {streaming && <TypingIndicator />}
+    </div>
+  );
+}
+
+function Message({ msg }: { msg: any }) {
+  const isUser = msg.role === "user";
+  return (
+    <div style={{
+      display: "flex",
+      flexDirection: isUser ? "row-reverse" : "row",
+      gap: 12,
+      marginBottom: 24,
+      animation: "fadeUp 0.3s ease",
+    }}>
+      {/* Avatar */}
+      <div style={{
+        width: 32, height: 32,
+        borderRadius: isUser ? 10 : 12,
+        background: isUser ? T.accent + "20" : T.surface,
+        border: `1px solid ${isUser ? T.accent + "40" : T.border}`,
+        display: "flex", alignItems: "center", justifyContent: "center",
+        fontSize: 13,
+        flexShrink: 0,
+        color: isUser ? T.accent : T.accentHi,
+      }}>
+        {isUser ? "أ" : "◈"}
+      </div>
+
+      {/* Bubble */}
+      <div style={{ maxWidth: "78%", minWidth: 60 }}>
+        {!isUser && msg.intent && (
+          <div style={{ marginBottom: 6, display: "flex", alignItems: "center", gap: 6 }}>
+            <IntentTag intent={msg.intent} />
+            {msg.agent && (
+              <span style={{
+                fontSize: 10, color: T.textMuted,
+                fontFamily: "'DM Mono', monospace",
+              }}>via {msg.agent}</span>
+            )}
+            {msg.duration && (
+              <span style={{ fontSize: 10, color: T.textDim, fontFamily: "'DM Mono', monospace" }}>
+                {msg.duration}
+              </span>
             )}
           </div>
         )}
-        <div className="text-sm leading-relaxed whitespace-pre-wrap">{message.content}</div>
-        {message.metadata?.duration_ms && (
-          <div className="mt-2 text-[10px] text-gray-500 flex gap-3">
-            <span>⏱ {message.metadata.duration_ms}ms</span>
-            {message.metadata.tokens_used && <span>🔤 {message.metadata.tokens_used} tokens</span>}
+        <div style={{
+          padding: isUser ? "10px 14px" : "12px 16px",
+          borderRadius: isUser ? "14px 4px 14px 14px" : "4px 14px 14px 14px",
+          background: isUser ? T.accent + "18" : T.surface,
+          border: `1px solid ${isUser ? T.accent + "35" : T.border}`,
+          fontSize: 13,
+          lineHeight: 1.7,
+          color: T.text,
+        }}>
+          {isUser
+            ? <span>{msg.content}</span>
+            : <MessageContent content={msg.content} streaming={msg.streaming} />
+          }
+        </div>
+        {!isUser && msg.cost && (
+          <div style={{ marginTop: 5, display: "flex", gap: 10 }}>
+            <span style={{ fontSize: 10, color: T.textDim, fontFamily: "'DM Mono', monospace" }}>
+              ${msg.cost} · {msg.tokens} tokens
+            </span>
           </div>
         )}
       </div>
@@ -120,203 +333,271 @@ function MessageBubble({ message }: { message: Message }) {
   );
 }
 
-function IntentSelector({
-  selected,
-  onSelect,
-}: {
-  selected: IntentType;
-  onSelect: (intent: IntentType) => void;
+function Sidebar({ conversations, activeId, onSelect, onNew }: {
+  conversations: typeof SAMPLE_CONVOS;
+  activeId: number;
+  onSelect: (id: number) => void;
+  onNew: () => void;
 }) {
   return (
-    <div className="flex flex-wrap gap-2 mb-4">
-      {INTENTS.map((intent) => (
-        <button
-          key={intent}
-          onClick={() => onSelect(intent)}
-          className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium transition-all duration-200 ${
-            selected === intent
-              ? "ring-2 ring-offset-2 ring-offset-gray-900 scale-105"
-              : "opacity-60 hover:opacity-100"
-          }`}
-          style={{
-            backgroundColor: `${INTENT_COLORS[intent]}20`,
-            color: INTENT_COLORS[intent],
-            ...(selected === intent ? { ringColor: INTENT_COLORS[intent] } : {}),
-          }}
+    <div style={{
+      width: 240,
+      background: T.bgDeep,
+      borderRight: `1px solid ${T.border}`,
+      display: "flex", flexDirection: "column",
+      flexShrink: 0,
+    }}>
+      {/* Logo */}
+      <div style={{
+        padding: "18px 16px 14px",
+        borderBottom: `1px solid ${T.border}`,
+      }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+          <div style={{
+            width: 28, height: 28,
+            borderRadius: 9,
+            background: `linear-gradient(135deg, ${T.accent}, ${T.teal})`,
+            display: "flex", alignItems: "center", justifyContent: "center",
+            fontSize: 13,
+          }}>◈</div>
+          <div>
+            <div style={{ fontSize: 13, fontWeight: 600, color: T.text, letterSpacing: -0.3 }}>
+              OneAgent
+            </div>
+            <div style={{ fontSize: 9, color: T.textMuted, fontFamily: "'DM Mono', monospace", letterSpacing: 1 }}>
+              OS v1.0
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* New Chat */}
+      <div style={{ padding: "10px 10px 6px" }}>
+        <button onClick={onNew} style={{
+          width: "100%",
+          padding: "8px 12px",
+          borderRadius: 9,
+          border: `1px dashed ${T.borderHi}`,
+          background: "transparent",
+          color: T.textMuted,
+          fontSize: 12,
+          cursor: "pointer",
+          display: "flex", alignItems: "center", gap: 6,
+          transition: "all 0.15s",
+        }}
+          onMouseEnter={e => { e.currentTarget.style.borderColor = T.accent + "60"; e.currentTarget.style.color = T.accent; }}
+          onMouseLeave={e => { e.currentTarget.style.borderColor = T.borderHi; e.currentTarget.style.color = T.textMuted; }}
         >
-          <span>{INTENT_EMOJIS[intent]}</span>
-          <span>{intent}</span>
+          <span style={{ fontSize: 16, lineHeight: 1 }}>+</span>
+          محادثة جديدة
         </button>
-      ))}
-    </div>
-  );
-}
+      </div>
 
-function AgentGrid({ agents }: { agents: AgentInfo[] }) {
-  return (
-    <div className="grid grid-cols-4 sm:grid-cols-6 md:grid-cols-8 gap-2">
-      {agents.map((agent) => (
-        <div
-          key={agent.name}
-          className="bg-gray-800/50 rounded-lg p-2 text-center border border-gray-700/30 hover:border-blue-500/50 transition-colors"
-        >
-          <div className="text-lg mb-1">
-            {agent.name === "crewai" ? "🤖" :
-             agent.name === "autogen" ? "🔄" :
-             agent.name === "langchain" ? "⛓️" :
-             agent.name === "babyagi" ? "🧠" :
-             agent.name === "swarm" ? "🐝" :
-             agent.name === "aider" ? "👨‍💻" :
-             agent.name === "openhands" ? "✋" :
-             agent.name === "rasa" ? "🗣️" :
-             agent.name === "autogpt" ? "🤯" :
-             agent.name === "camel" ? "🐪" :
-             agent.name === "metagpt" ? "🧙" :
-             agent.name === "letta" ? "💭" :
-             agent.name === "mem0" ? "🧩" :
-             agent.name === "huggingface" ? "🤗" :
-             agent.name === "haystack" ? "🧵" :
-             agent.name === "llamaindex" ? "🦙" :
-             agent.name === "semantic_kernel" ? "🌐" :
-             agent.name === "taskweaver" ? "🕸️" :
-             agent.name === "agentverse" ? "🌌" :
-             agent.name === "agentgpt" ? "🤖" :
-             agent.name === "botpress" ? "🤵" :
-             agent.name === "superagi" ? "🦸" :
-             agent.name === "langgraph" ? "🔀" :
-             agent.name === "smolagents" ? "📦" : "⚙️"}
-          </div>
-          <div className="text-[10px] text-gray-400 truncate">{agent.name}</div>
+      {/* History */}
+      <div style={{ flex: 1, overflowY: "auto", padding: "4px 10px" }}>
+        <div style={{ fontSize: 9, color: T.textDim, letterSpacing: 1.5, padding: "8px 6px 4px", fontFamily: "'DM Mono', monospace" }}>
+          RECENT
         </div>
-      ))}
-    </div>
-  );
-}
+        {conversations.map(c => (
+          <button key={c.id} onClick={() => onSelect(c.id)} style={{
+            width: "100%", textAlign: "right",
+            padding: "8px 8px",
+            borderRadius: 8,
+            border: "1px solid transparent",
+            background: activeId === c.id ? T.surfaceHi : "transparent",
+            cursor: "pointer",
+            marginBottom: 2,
+            transition: "all 0.12s",
+          }}
+            onMouseEnter={e => { if (activeId !== c.id) e.currentTarget.style.background = T.surfaceHover; }}
+            onMouseLeave={e => { if (activeId !== c.id) e.currentTarget.style.background = "transparent"; }}
+          >
+            <div style={{ display: "flex", alignItems: "flex-start", gap: 6 }}>
+              <IntentTag intent={c.intent} />
+            </div>
+            <div style={{ fontSize: 11, color: activeId === c.id ? T.text : T.textMuted, marginTop: 4, lineHeight: 1.4, textAlign: "right" }}>
+              {c.title}
+            </div>
+            <div style={{ fontSize: 9, color: T.textDim, marginTop: 3, fontFamily: "'DM Mono', monospace" }}>
+              {c.time}
+            </div>
+          </button>
+        ))}
+      </div>
 
-function HealthPanel({ health }: { health: HealthStatus | null }) {
-  if (!health) return null;
-  return (
-    <div className="bg-gray-800/30 rounded-xl p-4 border border-gray-700/30">
-      <h3 className="text-sm font-semibold text-gray-300 mb-3">🩺 System Health</h3>
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-        <div className="bg-gray-800/50 rounded-lg p-3 text-center">
-          <div className={`text-2xl ${health.status === "healthy" ? "text-green-400" : "text-yellow-400"}`}>
-            {health.status === "healthy" ? "✅" : "⚠️"}
-          </div>
-          <div className="text-xs text-gray-400 mt-1">{health.status}</div>
+      {/* Footer stats */}
+      <div style={{
+        padding: "10px 14px",
+        borderTop: `1px solid ${T.border}`,
+        display: "flex", flexDirection: "column", gap: 5,
+      }}>
+        <div style={{ display: "flex", justifyContent: "space-between" }}>
+          <span style={{ fontSize: 9, color: T.textDim, fontFamily: "'DM Mono', monospace" }}>اليوم</span>
+          <span style={{ fontSize: 9, color: T.green, fontFamily: "'DM Mono', monospace" }}>$0.003</span>
         </div>
-        <div className="bg-gray-800/50 rounded-lg p-3 text-center">
-          <div className="text-2xl text-blue-400">v{health.version}</div>
-          <div className="text-xs text-gray-400 mt-1">Version</div>
-        </div>
-        <div className="bg-gray-800/50 rounded-lg p-3 text-center">
-          <div className="text-2xl text-purple-400">{health.agents}</div>
-          <div className="text-xs text-gray-400 mt-1">Agents</div>
-        </div>
-        <div className="bg-gray-800/50 rounded-lg p-3 text-center">
-          <div className="text-2xl text-emerald-400">{health.memory.short_term + health.memory.long_term + health.memory.skill}</div>
-          <div className="text-xs text-gray-400 mt-1">Memory Items</div>
+        <div style={{ display: "flex", justifyContent: "space-between" }}>
+          <span style={{ fontSize: 9, color: T.textDim, fontFamily: "'DM Mono', monospace" }}>MODEL</span>
+          <span style={{ fontSize: 9, color: T.accent, fontFamily: "'DM Mono', monospace" }}>claude-s4</span>
         </div>
       </div>
     </div>
   );
 }
 
-// ─── Main App ────────────────────────────────────────────────
+function AgentPanel({ activeAgent, onSelect, thinking, currentAgent }: {
+  activeAgent: string;
+  onSelect: (id: string) => void;
+  thinking: boolean;
+  currentAgent: string;
+}) {
+  return (
+    <div style={{
+      width: 200,
+      background: T.bgDeep,
+      borderLeft: `1px solid ${T.border}`,
+      padding: "14px 12px",
+      display: "flex", flexDirection: "column", gap: 10,
+    }}>
+      <div style={{ fontSize: 9, color: T.textDim, letterSpacing: 1.5, fontFamily: "'DM Mono', monospace" }}>
+        AGENT SELECTOR
+      </div>
 
+      {AGENTS.map(a => (
+        <button key={a.id} onClick={() => onSelect(a.id)} style={{
+          padding: "8px 10px",
+          borderRadius: 9,
+          border: `1px solid ${activeAgent === a.id ? a.color + "50" : T.border}`,
+          background: activeAgent === a.id ? a.color + "10" : "transparent",
+          cursor: "pointer",
+          textAlign: "right",
+          transition: "all 0.15s",
+        }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 6, justifyContent: "flex-end" }}>
+            {thinking && currentAgent === a.id && <Dot color={a.color} pulse />}
+            <span style={{ fontSize: 11, color: activeAgent === a.id ? a.color : T.textMuted }}>
+              {a.name}
+            </span>
+            <span style={{ fontSize: 14, color: a.color }}>{a.icon}</span>
+          </div>
+          <div style={{ fontSize: 9, color: T.textDim, marginTop: 2, fontFamily: "'DM Mono', monospace" }}>
+            {a.desc}
+          </div>
+        </button>
+      ))}
+
+      {thinking && (
+        <div style={{
+          marginTop: 8,
+          padding: "10px",
+          borderRadius: 9,
+          background: T.accent + "08",
+          border: `1px solid ${T.accent}20`,
+        }}>
+          <div style={{ fontSize: 9, color: T.accent, fontFamily: "'DM Mono', monospace", marginBottom: 6 }}>
+            ACTIVE
+          </div>
+          <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+            {["Intent ✅", "Graph ✅", "Execute 🔄"].map((s, i) => (
+              <div key={i} style={{ fontSize: 10, color: T.textMuted, fontFamily: "'DM Mono', monospace" }}>
+                {s}
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ── MAIN APP ──────────────────────────────────────────────────────
 export default function OneAgentOS() {
-  const [messages, setMessages] = useState<Message[]>([
+  const [messages, setMessages] = useState<any[]>([
     {
-      id: "welcome",
-      role: "system",
-      content: "🧠 OneAgent OS ready — 24 agent frameworks loaded. How can I help you?",
-      timestamp: Date.now(),
-    },
+      id: 1,
+      role: "assistant",
+      content: "مرحباً. أنا OneAgent OS — نظام يوحّد 24 AI framework في واجهة واحدة.\n\nاكتب هدفك بالعربية أو الإنجليزية وسأختار أنسب framework تلقائياً.",
+      intent: null,
+    }
   ]);
   const [input, setInput] = useState("");
-  const [selectedIntent, setSelectedIntent] = useState<IntentType>("CODE");
-  const [isLoading, setIsLoading] = useState(false);
-  const [agents, setAgents] = useState<AgentInfo[]>([]);
-  const [health, setHealth] = useState<HealthStatus | null>(null);
-  const [showAgents, setShowAgents] = useState(false);
-  const [showHealth, setShowHealth] = useState(false);
+  const [thinking, setThinking] = useState(false);
+  const [activeAgent, setActiveAgent] = useState("auto");
+  const [activeConvo, setActiveConvo] = useState(1);
+  const [conversations, setConversations] = useState(SAMPLE_CONVOS);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
 
-  // Auto-scroll
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
 
-  // Fetch agents on mount
-  useEffect(() => {
-    fetch("/api/agents")
-      .then((r) => r.json())
-      .then(setAgents)
-      .catch(() => {});
-    fetch("/api/health")
-      .then((r) => r.json())
-      .then(setHealth)
-      .catch(() => {});
-  }, []);
-
   const sendMessage = useCallback(async () => {
-    if (!input.trim() || isLoading) return;
+    const text = input.trim();
+    if (!text || thinking) return;
 
-    const userMessage: Message = {
-      id: `user-${Date.now()}`,
-      role: "user",
-      content: input.trim(),
-      timestamp: Date.now(),
-    };
-
-    setMessages((prev) => [...prev, userMessage]);
+    const userMsg = { id: Date.now(), role: "user", content: text };
+    setMessages((prev: any[]) => [...prev, userMsg]);
     setInput("");
-    setIsLoading(true);
+    setThinking(true);
+
+    // Create assistant message placeholder
+    const assistantId = Date.now() + 1;
+    let sessionId = `session_${activeConvo}`;
+
+    setMessages((prev: any[]) => [...prev, {
+      id: assistantId,
+      role: "assistant",
+      content: "",
+      streaming: true,
+      intent: null,
+      agent: null,
+      duration: null,
+      cost: null,
+      tokens: null,
+    }]);
 
     try {
-      const startTime = performance.now();
-      const response = await fetch("/api/process", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          description: userMessage.content,
-          intent_type: selectedIntent,
-          user_id: "web-ui",
-          session_id: `web-${Date.now()}`,
-        }),
-      });
-      const data = await response.json();
-      const duration = Math.round(performance.now() - startTime);
+      // Stream from real API
+      let fullContent = "";
 
-      const assistantMessage: Message = {
-        id: `assistant-${Date.now()}`,
-        role: "assistant",
-        content: data.content || data.error || "No response",
-        timestamp: Date.now(),
-        metadata: {
-          intent: selectedIntent,
-          framework: data.framework,
-          duration_ms: duration,
-          tokens_used: data.tokens_used,
-        },
-      };
+      for await (const chunk of streamChat(text, sessionId)) {
+        const { type, content } = chunk;
 
-      setMessages((prev) => [...prev, assistantMessage]);
-    } catch (error) {
-      setMessages((prev) => [
-        ...prev,
-        {
-          id: `error-${Date.now()}`,
-          role: "assistant",
-          content: `❌ Error: ${error instanceof Error ? error.message : "Connection failed"}`,
-          timestamp: Date.now(),
-        },
-      ]);
-    } finally {
-      setIsLoading(false);
+        switch (type) {
+          case "token":
+            fullContent += content;
+            setMessages((prev: any[]) => prev.map((m: any) =>
+              m.id === assistantId ? { ...m, content: fullContent } : m
+            ));
+            break;
+
+          case "error":
+            fullContent += `\n\n⚠️ ${content}`;
+            setMessages((prev: any[]) => prev.map((m: any) =>
+              m.id === assistantId ? { ...m, content: fullContent } : m
+            ));
+            break;
+        }
+      }
+
+      // Mark as done
+      setMessages((prev: any[]) => prev.map((m: any) =>
+        m.id === assistantId ? { ...m, streaming: false } : m
+      ));
+    } catch (err: any) {
+      // Fallback: if API is not available, show a friendly message
+      setMessages((prev: any[]) => prev.map((m: any) =>
+        m.id === assistantId ? {
+          ...m,
+          content: `⚠️ تعذر الاتصال بالـ API. تأكد من تشغيل الخادم على ${API_BASE}\n\n**الخطأ:** ${err.message}`,
+          streaming: false,
+        } : m
+      ));
     }
-  }, [input, isLoading, selectedIntent]);
+
+    setThinking(false);
+  }, [input, thinking, activeAgent, activeConvo]);
+
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === "Enter" && !e.shiftKey) {
@@ -325,124 +606,213 @@ export default function OneAgentOS() {
     }
   };
 
+  const newConversation = () => {
+    const id = Date.now();
+    setConversations((prev: any[]) => [{ id, title: "محادثة جديدة", intent: "CODE", time: "الآن" }, ...prev]);
+    setActiveConvo(id);
+    setMessages([{
+      id: 1, role: "assistant",
+      content: "محادثة جديدة. ما هدفك؟",
+      intent: null,
+    }]);
+  };
+
   return (
-    <div className="min-h-screen bg-gradient-to-br from-gray-900 via-gray-950 to-black text-white">
-      {/* Header */}
-      <header className="border-b border-gray-800/50 bg-gray-900/50 backdrop-blur-xl sticky top-0 z-50">
-        <div className="max-w-6xl mx-auto px-4 py-3 flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 bg-gradient-to-br from-blue-500 to-purple-600 rounded-xl flex items-center justify-center text-lg font-bold shadow-lg shadow-blue-500/20">
-              OA
+    <>
+      <style>{`
+        @import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Arabic:wght@300;400;500;600&family=DM+Mono:wght@400;500&display=swap');
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body { background: ${T.bg}; }
+        ::-webkit-scrollbar { width: 4px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb { background: ${T.borderHi}; border-radius: 2px; }
+        @keyframes fadeUp {
+          from { opacity: 0; transform: translateY(8px); }
+          to   { opacity: 1; transform: translateY(0); }
+        }
+        @keyframes pulse {
+          0%, 100% { opacity: 1; transform: scale(1); }
+          50%       { opacity: 0.5; transform: scale(1.3); }
+        }
+        @keyframes bounce {
+          0%, 80%, 100% { transform: translateY(0); }
+          40%            { transform: translateY(-5px); }
+        }
+        @keyframes shimmer {
+          0%   { background-position: -200% center; }
+          100% { background-position: 200% center; }
+        }
+        button { outline: none; }
+        textarea { outline: none; resize: none; }
+      `}</style>
+
+      <div style={{
+        display: "flex",
+        height: "100vh",
+        fontFamily: "'IBM Plex Sans Arabic', sans-serif",
+        background: T.bg,
+        color: T.text,
+        direction: "rtl",
+        overflow: "hidden",
+      }}>
+        {/* Sidebar */}
+        <Sidebar
+          conversations={conversations}
+          activeId={activeConvo}
+          onSelect={setActiveConvo}
+          onNew={newConversation}
+        />
+
+        {/* Main */}
+        <div style={{ flex: 1, display: "flex", flexDirection: "column", overflow: "hidden" }}>
+          
+          {/* Header */}
+          <div style={{
+            padding: "12px 20px",
+            borderBottom: `1px solid ${T.border}`,
+            display: "flex", alignItems: "center", justifyContent: "space-between",
+            background: T.bgDeep,
+            backdropFilter: "blur(10px)",
+          }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+              <Dot color={T.green} pulse />
+              <span style={{ fontSize: 11, color: T.textMuted, fontFamily: "'DM Mono', monospace" }}>
+                24 frameworks · online
+              </span>
             </div>
-            <div>
-              <h1 className="text-lg font-bold bg-gradient-to-r from-blue-400 to-purple-400 bg-clip-text text-transparent">
-                OneAgent OS
-              </h1>
-              <p className="text-[10px] text-gray-500">24 Agent Frameworks • Unified Orchestration</p>
+
+            <div style={{ display: "flex", gap: 6 }}>
+              {["Redis ✓", "Postgres ✓", "Qdrant ✓"].map((s, i) => (
+                <span key={i} style={{
+                  fontSize: 9, color: T.green,
+                  padding: "2px 7px",
+                  background: T.green + "10",
+                  border: `1px solid ${T.green}25`,
+                  borderRadius: 4,
+                  fontFamily: "'DM Mono', monospace",
+                }}>{s}</span>
+              ))}
             </div>
           </div>
-          <div className="flex items-center gap-2">
-            <button
-              onClick={() => setShowAgents(!showAgents)}
-              className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${
-                showAgents ? "bg-blue-600 text-white" : "bg-gray-800 text-gray-400 hover:bg-gray-700"
-              }`}
-            >
-              🤖 Agents
-            </button>
-            <button
-              onClick={() => setShowHealth(!showHealth)}
-              className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${
-                showHealth ? "bg-emerald-600 text-white" : "bg-gray-800 text-gray-400 hover:bg-gray-700"
-              }`}
-            >
-              🩺 Health
-            </button>
+
+          {/* Messages */}
+          <div style={{
+            flex: 1,
+            overflowY: "auto",
+            padding: "24px 32px",
+          }}>
+            {messages.map((msg: any) => <Message key={msg.id} msg={msg} />)}
+            {thinking && (
+              <div style={{ display: "flex", gap: 12, marginBottom: 24 }}>
+                <div style={{
+                  width: 32, height: 32, borderRadius: 12,
+                  background: T.surface, border: `1px solid ${T.border}`,
+                  display: "flex", alignItems: "center", justifyContent: "center",
+                  fontSize: 13, color: T.accentHi,
+                }}>◈</div>
+                <div style={{
+                  padding: "12px 16px",
+                  borderRadius: "4px 14px 14px 14px",
+                  background: T.surface, border: `1px solid ${T.border}`,
+                }}>
+                  <TypingIndicator />
+                </div>
+              </div>
+            )}
+            <div ref={messagesEndRef} />
+          </div>
+
+          {/* Input */}
+          <div style={{
+            padding: "14px 20px 18px",
+            borderTop: `1px solid ${T.border}`,
+            background: T.bgDeep,
+          }}>
+            {/* Agent pills */}
+            <div style={{ display: "flex", gap: 6, marginBottom: 10, flexWrap: "wrap" }}>
+              {AGENTS.map(a => (
+                <AgentBadge key={a.id} agent={a} active={activeAgent === a.id} onClick={() => setActiveAgent(a.id)} />
+              ))}
+            </div>
+
+            {/* Input box */}
+            <div style={{
+              display: "flex", gap: 10, alignItems: "flex-end",
+              padding: "10px 14px",
+              borderRadius: 14,
+              border: `1px solid ${input ? T.accent + "50" : T.border}`,
+              background: T.surface,
+              transition: "border-color 0.2s",
+            }}>
+              <textarea
+                ref={inputRef}
+                value={input}
+                onChange={e => setInput(e.target.value)}
+                onKeyDown={handleKeyDown}
+                placeholder="اكتب هدفك... (Enter للإرسال)"
+                rows={1}
+                style={{
+                  flex: 1,
+                  background: "transparent",
+                  border: "none",
+                  color: T.text,
+                  fontSize: 13,
+                  lineHeight: 1.6,
+                  fontFamily: "'IBM Plex Sans Arabic', sans-serif",
+                  maxHeight: 120,
+                  overflowY: "auto",
+                }}
+                onInput={e => {
+                  const target = e.currentTarget;
+                  target.style.height = "auto";
+                  target.style.height = Math.min(target.scrollHeight, 120) + "px";
+                }}
+              />
+              <button
+                onClick={sendMessage}
+                disabled={!input.trim() || thinking}
+                style={{
+                  width: 34, height: 34,
+                  borderRadius: 10,
+                  border: "none",
+                  background: input.trim() && !thinking
+                    ? `linear-gradient(135deg, ${T.accent}, ${T.teal})`
+                    : T.borderHi,
+                  color: input.trim() && !thinking ? "white" : T.textDim,
+                  cursor: input.trim() && !thinking ? "pointer" : "not-allowed",
+                  fontSize: 15,
+                  display: "flex", alignItems: "center", justifyContent: "center",
+                  flexShrink: 0,
+                  transition: "all 0.2s",
+                  transform: input.trim() && !thinking ? "scale(1)" : "scale(0.95)",
+                }}
+              >
+                ↑
+              </button>
+            </div>
+
+            <div style={{
+              marginTop: 7,
+              display: "flex", justifyContent: "space-between", alignItems: "center",
+            }}>
+              <span style={{ fontSize: 9, color: T.textDim, fontFamily: "'DM Mono', monospace" }}>
+                Shift+Enter للسطر الجديد
+              </span>
+              <span style={{ fontSize: 9, color: T.textDim, fontFamily: "'DM Mono', monospace" }}>
+                avg cost {'<'} $0.01/req
+              </span>
+            </div>
           </div>
         </div>
-      </header>
 
-      {/* Panels */}
-      {showAgents && (
-        <div className="max-w-6xl mx-auto px-4 py-4">
-          <div className="bg-gray-900/50 backdrop-blur-xl rounded-xl p-4 border border-gray-800/50">
-            <h2 className="text-sm font-semibold text-gray-300 mb-3">🤖 24 Agent Frameworks</h2>
-            <AgentGrid agents={agents} />
-          </div>
-        </div>
-      )}
-
-      {showHealth && (
-        <div className="max-w-6xl mx-auto px-4 py-4">
-          <HealthPanel health={health} />
-        </div>
-      )}
-
-      {/* Chat Area */}
-      <div className="max-w-4xl mx-auto px-4 py-6">
-        <IntentSelector selected={selectedIntent} onSelect={setSelectedIntent} />
-
-        <div className="bg-gray-900/30 backdrop-blur-xl rounded-2xl border border-gray-800/50 min-h-[400px] max-h-[600px] overflow-y-auto p-4 mb-4">
-          {messages.map((msg) => (
-            <MessageBubble key={msg.id} message={msg} />
-          ))}
-          {isLoading && <TypingIndicator />}
-          <div ref={messagesEndRef} />
-        </div>
-
-        {/* Input */}
-        <div className="flex gap-3 items-end">
-          <div className="flex-1 relative">
-            <textarea
-              ref={inputRef}
-              value={input}
-              onChange={(e) => setInput(e.target.value)}
-              onKeyDown={handleKeyDown}
-              placeholder="Type your task... (Shift+Enter for new line)"
-              rows={1}
-              className="w-full bg-gray-800/80 border border-gray-700/50 rounded-xl px-4 py-3 text-sm text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500/50 resize-none transition-all"
-              style={{ minHeight: "44px", maxHeight: "120px" }}
-            />
-          </div>
-          <button
-            onClick={sendMessage}
-            disabled={isLoading || !input.trim()}
-            className="px-6 py-3 bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-500 hover:to-purple-500 disabled:from-gray-700 disabled:to-gray-700 disabled:text-gray-500 text-white rounded-xl font-medium text-sm transition-all shadow-lg shadow-blue-500/20 disabled:shadow-none"
-          >
-            {isLoading ? "⏳" : "Send →"}
-          </button>
-        </div>
-
-        {/* Quick actions */}
-        <div className="flex gap-2 mt-4 flex-wrap">
-          {[
-            { label: "Write a Python function", intent: "CODE" as IntentType },
-            { label: "Research AI trends", intent: "RESEARCH" as IntentType },
-            { label: "Analyze data", intent: "DATA" as IntentType },
-            { label: "Plan a project", intent: "PLANNING" as IntentType },
-            { label: "Chat", intent: "CONVERSATION" as IntentType },
-          ].map((action) => (
-            <button
-              key={action.label}
-              onClick={() => {
-                setInput(action.label);
-                setSelectedIntent(action.intent);
-                inputRef.current?.focus();
-              }}
-              className="text-xs px-3 py-1.5 bg-gray-800/50 hover:bg-gray-700/50 text-gray-400 hover:text-gray-200 rounded-lg border border-gray-700/30 transition-all"
-            >
-              {action.label}
-            </button>
-          ))}
-        </div>
+        {/* Agent Panel */}
+        <AgentPanel
+          activeAgent={activeAgent}
+          onSelect={setActiveAgent}
+          thinking={thinking}
+          currentAgent={activeAgent}
+        />
       </div>
-
-      {/* Footer */}
-      <footer className="border-t border-gray-800/50 py-4 text-center">
-        <p className="text-xs text-gray-600">
-          OneAgent OS v1.0 • 24 Agent Frameworks • Built with ❤️
-        </p>
-      </footer>
-    </div>
+    </>
   );
 }

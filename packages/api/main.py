@@ -27,6 +27,20 @@ from core.base_agent import AgentRegistry
 from core.intent.classifier import IntentClassifier
 from core.models import StreamChunk
 
+# ── Auth ───────────────────────────────────────────────────────────
+from fastapi_users import FastAPIUsers
+from .auth import auth_backend, UserRead, UserCreate
+
+fastapi_users = FastAPIUsers(
+    get_user_manager=lambda: None,  # Will be replaced with real DB-backed manager
+    auth_backends=[auth_backend],
+)
+
+# ── Rate Limiting (Redis-based) ────────────────────────────────────
+from slowapi import Limiter, _rate_limit_exceeded_handler
+from slowapi.util import get_remote_address
+from slowapi.errors import RateLimitExceeded
+
 
 # ── App State ──────────────────────────────────────────────────────
 
@@ -57,45 +71,6 @@ app = FastAPI(
     lifespan=lifespan,
 )
 
-# ── Rate Limiting ──────────────────────────────────────────────────
-
-class RateLimitMiddleware:
-    """Simple in-memory rate limiter — 60 requests/minute per IP"""
-
-    def __init__(self, max_requests: int = 60, window_seconds: int = 60):
-        self.max_requests = max_requests
-        self.window_seconds = window_seconds
-        self.requests: dict[str, list[float]] = defaultdict(list)
-
-    async def __call__(self, request: Request, call_next):
-        # Skip rate limiting for health check
-        if request.url.path == "/health":
-            return await call_next(request)
-
-        client_ip = request.client.host if request.client else "unknown"
-        now = time.time()
-        window_start = now - self.window_seconds
-
-        # Clean old entries
-        self.requests[client_ip] = [
-            t for t in self.requests[client_ip] if t > window_start
-        ]
-
-        # Check limit
-        if len(self.requests[client_ip]) >= self.max_requests:
-            from fastapi.responses import JSONResponse
-            return JSONResponse(
-                status_code=429,
-                content={
-                    "error": "Too many requests",
-                    "retry_after_seconds": int(self.requests[client_ip][0] + self.window_seconds - now),
-                },
-            )
-
-        self.requests[client_ip].append(now)
-        return await call_next(request)
-
-
 # CORS — allow frontend from any origin in development
 app.add_middleware(
     CORSMiddleware,
@@ -105,8 +80,26 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Rate limiting
-app.middleware("http")(RateLimitMiddleware())
+# ── Rate Limiting ──────────────────────────────────────────────────
+limiter = Limiter(
+    key_func=get_remote_address,
+    storage_uri=os.getenv("REDIS_URL", "redis://localhost:6379"),
+    default_limits=["200/hour"],
+)
+app.state.limiter = limiter
+app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
+
+# ── Auth Routes ────────────────────────────────────────────────────
+app.include_router(
+    fastapi_users.get_auth_router(auth_backend),
+    prefix="/auth/jwt",
+    tags=["auth"],
+)
+app.include_router(
+    fastapi_users.get_register_router(UserRead, UserCreate),
+    prefix="/auth",
+    tags=["auth"],
+)
 
 
 # ── Models ──────────────────────────────────────────────────────────
