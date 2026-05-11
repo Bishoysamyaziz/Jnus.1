@@ -1,8 +1,8 @@
 import type { Metadata } from 'next'
 
 export const metadata: Metadata = {
-  title: 'OneAgent OS',
-  description: 'Unified AI Agent System — 24 Frameworks in One Interface',
+  title: 'Jnus — Think Once. Do Everything.',
+  description: 'مساعد ذكاء اصطناعي يفهم هدفك، يبني خطة تنفيذ تلقائية، ويستخدم أنسب أداة لكل مهمة — بدون أي إعداد منك.',
 }
 
 export default function RootLayout({
@@ -14,9 +14,9 @@ export default function RootLayout({
     <html lang="ar" dir="rtl">
       <head>
         <link rel="preconnect" href="https://fonts.googleapis.com" />
-        <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Arabic:wght@300;400;500;600&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet" />
+        <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;700;900&family=Noto+Kufi+Arabic:wght@300;400;500;600&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet" />
       </head>
-      <body style={{ margin: 0, background: '#080810', color: '#E8E6F0' }}>{children}</body>
+      <body style={{ margin: 0, background: '#F5F3EF', color: '#1A1814' }}>{children}</body>
     </html>
   )
 }

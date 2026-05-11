@@ -5,48 +5,42 @@ import { useState, useRef, useEffect, useCallback } from "react";
 const API_URL = process.env.NEXT_PUBLIC_API_URL ||
                 "http://localhost:8000";
 
-// ── PALETTE ──────────────────────────────────────────────────────
-const T = {
-  bg:          "#080810",
-  bgDeep:      "#05050C",
-  surface:     "#0F0F1A",
-  surfaceHi:   "#161625",
-  surfaceHover:"#1C1C2E",
-  border:      "#1E1E35",
-  borderHi:    "#2E2E50",
-  accent:      "#7B6EF6",
-  accentHi:    "#9D93FF",
-  accentGlow:  "#7B6EF620",
-  accentSoft:  "#C4BEFF",
-  gold:        "#E8B96A",
-  goldSoft:    "#F5D99A",
-  teal:        "#3DD6C0",
-  tealSoft:    "#A8F0E6",
-  rose:        "#F06292",
-  text:        "#E8E6F0",
-  textMuted:   "#7A7890",
-  textDim:     "#3A384A",
-  green:       "#5DDC9A",
-  amber:       "#F5A623",
+// ── JNUS PALETTE ──────────────────────────────────────────────────
+const C = {
+  ink:     '#09090F',
+  ink2:    '#0D0D16',
+  paper:   '#F5F3EF',
+  gold:    '#C9A84C',
+  gold2:   '#E8CC80',
+  golddim: '#C9A84C18',
+  stone:   '#6B6860',
+  stone2:  '#9C9888',
+  line:    '#E2DDD6',
+  line2:   '#2A2820',
+  txt:     '#1A1814',
+  muted:   '#6B6860',
+  dim:     '#C8C4BC',
+  green:   '#3D9970',
+  red:     '#C0392B',
 };
 
 // ── AGENT FRAMEWORKS ─────────────────────────────────────────────
 const AGENTS = [
-  { id: "auto",        name: "Auto",        icon: "◈", color: T.accent,  desc: "اختيار تلقائي" },
-  { id: "crewai",      name: "CrewAI",       icon: "⬡", color: T.teal,   desc: "Multi-role" },
-  { id: "autogen",     name: "AutoGen",      icon: "◉", color: T.gold,   desc: "Group chat" },
-  { id: "metagpt",     name: "MetaGPT",      icon: "▣", color: T.rose,   desc: "Software Co." },
-  { id: "langchain",   name: "LangChain",    icon: "⟁", color: T.accentHi, desc: "Chain of thought" },
-  { id: "aider",       name: "Aider",        icon: "⌬", color: T.green,  desc: "Code editing" },
+  { id: "auto",        name: "Auto",        icon: "◈", color: C.gold,   desc: "اختيار تلقائي" },
+  { id: "crewai",      name: "CrewAI",       icon: "⬡", color: "#3DD6C0", desc: "Multi-role" },
+  { id: "autogen",     name: "AutoGen",      icon: "◉", color: C.gold,   desc: "Group chat" },
+  { id: "metagpt",     name: "MetaGPT",      icon: "▣", color: "#F06292", desc: "Software Co." },
+  { id: "langchain",   name: "LangChain",    icon: "⟁", color: "#7B6EF6", desc: "Chain of thought" },
+  { id: "aider",       name: "Aider",        icon: "⌬", color: C.green,  desc: "Code editing" },
 ];
 
 const INTENTS = [
-  { type: "CODE",         label: "كود",       color: T.green,  icon: "⌨" },
-  { type: "RESEARCH",     label: "بحث",       color: T.teal,   icon: "◎" },
-  { type: "CREATIVE",     label: "إبداعي",    color: T.rose,   icon: "✦" },
-  { type: "DATA",         label: "بيانات",    color: T.gold,   icon: "▦" },
-  { type: "PLANNING",     label: "تخطيط",     color: T.accent, icon: "◈" },
-  { type: "AUTOMATION",   label: "أتمتة",     color: T.amber,  icon: "⚡" },
+  { type: "CODE",         label: "كود",       color: C.green,  icon: "⌨" },
+  { type: "RESEARCH",     label: "بحث",       color: "#3DD6C0", icon: "◎" },
+  { type: "CREATIVE",     label: "إبداعي",    color: "#F06292", icon: "✦" },
+  { type: "DATA",         label: "بيانات",    color: C.gold,   icon: "▦" },
+  { type: "PLANNING",     label: "تخطيط",     color: "#7B6EF6", icon: "◈" },
+  { type: "AUTOMATION",   label: "أتمتة",     color: "#F5A623", icon: "⚡" },
 ];
 
 const SAMPLE_CONVOS = [
@@ -128,13 +122,13 @@ function AgentBadge({ agent, active, onClick }: { agent: typeof AGENTS[0]; activ
       display: "flex", alignItems: "center", gap: 6,
       padding: "5px 10px",
       borderRadius: 8,
-      border: `1px solid ${active ? agent.color + "60" : T.border}`,
+      border: `1px solid ${active ? agent.color + "60" : C.line}`,
       background: active ? agent.color + "12" : "transparent",
       cursor: "pointer",
       transition: "all 0.15s ease",
     }}>
       <span style={{ fontSize: 13, color: agent.color }}>{agent.icon}</span>
-      <span style={{ fontSize: 11, color: active ? agent.color : T.textMuted, fontFamily: "'DM Mono', monospace" }}>
+      <span style={{ fontSize: 11, color: active ? agent.color : C.muted, fontFamily: "'DM Mono', monospace" }}>
         {agent.name}
       </span>
     </button>
@@ -168,7 +162,7 @@ function TypingIndicator() {
         <span key={i} style={{
           width: 6, height: 6,
           borderRadius: "50%",
-          background: T.accent,
+          background: C.gold,
           opacity: 0.7,
           animation: `bounce 1.2s ease-in-out ${i * 0.2}s infinite`,
         }} />
@@ -197,28 +191,28 @@ function MessageContent({ content, streaming }: { content: string; streaming?: b
             margin: "10px 0",
             borderRadius: 10,
             overflow: "hidden",
-            border: `1px solid ${T.border}`,
+            border: `1px solid ${C.line}`,
           }}>
             {codeLang && (
               <div style={{
                 padding: "6px 14px",
-                background: T.surface,
-                borderBottom: `1px solid ${T.border}`,
+                background: C.ink2,
+                borderBottom: `1px solid ${C.line2}`,
                 fontSize: 10,
-                color: T.textMuted,
+                color: C.stone2,
                 fontFamily: "'DM Mono', monospace",
                 display: "flex", justifyContent: "space-between",
               }}>
                 <span>{codeLang}</span>
-                <span style={{ color: T.green, letterSpacing: 0.5 }}>● LIVE</span>
+                <span style={{ color: C.green, letterSpacing: 0.5 }}>● LIVE</span>
               </div>
             )}
             <pre style={{
               margin: 0, padding: "14px",
-              background: T.bgDeep,
+              background: C.ink2,
               fontSize: 12,
               lineHeight: 1.7,
-              color: T.tealSoft,
+              color: "#7DD3FC",
               fontFamily: "'DM Mono', monospace",
               overflowX: "auto",
             }}>{codeLines.join("\n")}</pre>
@@ -232,14 +226,14 @@ function MessageContent({ content, streaming }: { content: string; streaming?: b
       codeLines.push(line);
     } else if (line.startsWith("**") && line.endsWith("**")) {
       rendered.push(
-        <strong key={i} style={{ color: T.accentSoft, display: "block", margin: "6px 0 2px" }}>
+        <strong key={i} style={{ color: C.gold, display: "block", margin: "6px 0 2px" }}>
           {line.slice(2, -2)}
         </strong>
       );
     } else if (line.match(/^\d\./)) {
       rendered.push(
-        <div key={i} style={{ display: "flex", gap: 8, margin: "3px 0", fontSize: 13, color: T.text }}>
-          <span style={{ color: T.accent, fontFamily: "'DM Mono', monospace", minWidth: 16 }}>
+        <div key={i} style={{ display: "flex", gap: 8, margin: "3px 0", fontSize: 13, color: C.txt }}>
+          <span style={{ color: C.gold, fontFamily: "'DM Mono', monospace", minWidth: 16 }}>
             {line[0]}
           </span>
           <span>{line.slice(2).replace(/\*\*(.*?)\*\*/g, "$1")}</span>
@@ -250,10 +244,10 @@ function MessageContent({ content, streaming }: { content: string; streaming?: b
     } else {
       const parts = line.split(/\*\*(.*?)\*\*/g);
       rendered.push(
-        <span key={i} style={{ fontSize: 13, lineHeight: 1.8, color: T.text, display: "block" }}>
+        <span key={i} style={{ fontSize: 13, lineHeight: 1.8, color: C.txt, display: "block" }}>
           {parts.map((p, j) => j % 2 === 0
             ? <span key={j}>{p}</span>
-            : <strong key={j} style={{ color: T.accentSoft }}>{p}</strong>
+            : <strong key={j} style={{ color: C.gold }}>{p}</strong>
           )}
         </span>
       );
@@ -281,15 +275,17 @@ function Message({ msg }: { msg: any }) {
       {/* Avatar */}
       <div style={{
         width: 32, height: 32,
-        borderRadius: isUser ? 10 : 12,
-        background: isUser ? T.accent + "20" : T.surface,
-        border: `1px solid ${isUser ? T.accent + "40" : T.border}`,
+        borderRadius: isUser ? 10 : 11,
+        background: isUser ? C.golddim : C.ink,
+        border: `1px solid ${isUser ? C.gold : C.line2}`,
         display: "flex", alignItems: "center", justifyContent: "center",
         fontSize: 13,
         flexShrink: 0,
-        color: isUser ? T.accent : T.accentHi,
+        color: isUser ? C.gold : C.gold,
+        fontFamily: isUser ? "'Noto Kufi Arabic', sans-serif" : "'Playfair Display', serif",
+        fontWeight: 700,
       }}>
-        {isUser ? "أ" : "◈"}
+        {isUser ? "أ" : "J"}
       </div>
 
       {/* Bubble */}
@@ -299,12 +295,12 @@ function Message({ msg }: { msg: any }) {
             <IntentTag intent={msg.intent} />
             {msg.agent && (
               <span style={{
-                fontSize: 10, color: T.textMuted,
+                fontSize: 10, color: C.muted,
                 fontFamily: "'DM Mono', monospace",
               }}>via {msg.agent}</span>
             )}
             {msg.duration && (
-              <span style={{ fontSize: 10, color: T.textDim, fontFamily: "'DM Mono', monospace" }}>
+              <span style={{ fontSize: 10, color: C.dim, fontFamily: "'DM Mono', monospace" }}>
                 {msg.duration}
               </span>
             )}
@@ -313,11 +309,11 @@ function Message({ msg }: { msg: any }) {
         <div style={{
           padding: isUser ? "10px 14px" : "12px 16px",
           borderRadius: isUser ? "14px 4px 14px 14px" : "4px 14px 14px 14px",
-          background: isUser ? T.accent + "18" : T.surface,
-          border: `1px solid ${isUser ? T.accent + "35" : T.border}`,
+          background: isUser ? C.ink : "#fff",
+          border: `1px solid ${isUser ? C.line2 : C.line}`,
           fontSize: 13,
           lineHeight: 1.7,
-          color: T.text,
+          color: isUser ? C.paper : C.txt,
         }}>
           {isUser
             ? <span>{msg.content}</span>
@@ -326,7 +322,7 @@ function Message({ msg }: { msg: any }) {
         </div>
         {!isUser && msg.cost && (
           <div style={{ marginTop: 5, display: "flex", gap: 10 }}>
-            <span style={{ fontSize: 10, color: T.textDim, fontFamily: "'DM Mono', monospace" }}>
+            <span style={{ fontSize: 10, color: C.dim, fontFamily: "'DM Mono', monospace" }}>
               ${msg.cost} · {msg.tokens} tokens
             </span>
           </div>
@@ -345,31 +341,21 @@ function Sidebar({ conversations, activeId, onSelect, onNew }: {
   return (
     <div style={{
       width: 240,
-      background: T.bgDeep,
-      borderRight: `1px solid ${T.border}`,
+      background: C.ink2,
+      borderLeft: `1px solid ${C.line2}`,
       display: "flex", flexDirection: "column",
       flexShrink: 0,
     }}>
       {/* Logo */}
       <div style={{
         padding: "18px 16px 14px",
-        borderBottom: `1px solid ${T.border}`,
+        borderBottom: `1px solid ${C.line2}`,
       }}>
         <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
           <div style={{
-            width: 28, height: 28,
-            borderRadius: 9,
-            background: `linear-gradient(135deg, ${T.accent}, ${T.teal})`,
-            display: "flex", alignItems: "center", justifyContent: "center",
-            fontSize: 13,
-          }}>◈</div>
-          <div>
-            <div style={{ fontSize: 13, fontWeight: 600, color: T.text, letterSpacing: -0.3 }}>
-              OneAgent
-            </div>
-            <div style={{ fontSize: 9, color: T.textMuted, fontFamily: "'DM Mono', monospace", letterSpacing: 1 }}>
-              OS v1.0
-            </div>
+            fontFamily: "'Playfair Display', serif", fontSize: 16, fontWeight: 900, color: C.paper,
+          }}>
+            J<em style={{ color: C.gold, fontStyle: 'normal' }}>nus</em>
           </div>
         </div>
       </div>
@@ -380,16 +366,16 @@ function Sidebar({ conversations, activeId, onSelect, onNew }: {
           width: "100%",
           padding: "8px 12px",
           borderRadius: 9,
-          border: `1px dashed ${T.borderHi}`,
+          border: `1px dashed #2E2C22`,
           background: "transparent",
-          color: T.textMuted,
+          color: C.stone2,
           fontSize: 12,
           cursor: "pointer",
           display: "flex", alignItems: "center", gap: 6,
           transition: "all 0.15s",
         }}
-          onMouseEnter={e => { e.currentTarget.style.borderColor = T.accent + "60"; e.currentTarget.style.color = T.accent; }}
-          onMouseLeave={e => { e.currentTarget.style.borderColor = T.borderHi; e.currentTarget.style.color = T.textMuted; }}
+          onMouseEnter={e => { e.currentTarget.style.borderColor = C.gold; e.currentTarget.style.color = C.gold; }}
+          onMouseLeave={e => { e.currentTarget.style.borderColor = "#2E2C22"; e.currentTarget.style.color = C.stone2; }}
         >
           <span style={{ fontSize: 16, lineHeight: 1 }}>+</span>
           محادثة جديدة
@@ -398,7 +384,7 @@ function Sidebar({ conversations, activeId, onSelect, onNew }: {
 
       {/* History */}
       <div style={{ flex: 1, overflowY: "auto", padding: "4px 10px" }}>
-        <div style={{ fontSize: 9, color: T.textDim, letterSpacing: 1.5, padding: "8px 6px 4px", fontFamily: "'DM Mono', monospace" }}>
+        <div style={{ fontSize: 9, color: "#3A3828", letterSpacing: 1.5, padding: "8px 6px 4px", fontFamily: "'DM Mono', monospace" }}>
           RECENT
         </div>
         {conversations.map(c => (
@@ -407,21 +393,21 @@ function Sidebar({ conversations, activeId, onSelect, onNew }: {
             padding: "8px 8px",
             borderRadius: 8,
             border: "1px solid transparent",
-            background: activeId === c.id ? T.surfaceHi : "transparent",
+            background: activeId === c.id ? "#141410" : "transparent",
             cursor: "pointer",
             marginBottom: 2,
             transition: "all 0.12s",
           }}
-            onMouseEnter={e => { if (activeId !== c.id) e.currentTarget.style.background = T.surfaceHover; }}
+            onMouseEnter={e => { if (activeId !== c.id) e.currentTarget.style.background = "#141410"; }}
             onMouseLeave={e => { if (activeId !== c.id) e.currentTarget.style.background = "transparent"; }}
           >
             <div style={{ display: "flex", alignItems: "flex-start", gap: 6 }}>
               <IntentTag intent={c.intent} />
             </div>
-            <div style={{ fontSize: 11, color: activeId === c.id ? T.text : T.textMuted, marginTop: 4, lineHeight: 1.4, textAlign: "right" }}>
+            <div style={{ fontSize: 11, color: activeId === c.id ? C.stone2 : C.stone2, marginTop: 4, lineHeight: 1.4, textAlign: "right" }}>
               {c.title}
             </div>
-            <div style={{ fontSize: 9, color: T.textDim, marginTop: 3, fontFamily: "'DM Mono', monospace" }}>
+            <div style={{ fontSize: 9, color: "#3A3828", marginTop: 3, fontFamily: "'DM Mono', monospace" }}>
               {c.time}
             </div>
           </button>
@@ -431,16 +417,16 @@ function Sidebar({ conversations, activeId, onSelect, onNew }: {
       {/* Footer stats */}
       <div style={{
         padding: "10px 14px",
-        borderTop: `1px solid ${T.border}`,
+        borderTop: `1px solid ${C.line2}`,
         display: "flex", flexDirection: "column", gap: 5,
       }}>
         <div style={{ display: "flex", justifyContent: "space-between" }}>
-          <span style={{ fontSize: 9, color: T.textDim, fontFamily: "'DM Mono', monospace" }}>اليوم</span>
-          <span style={{ fontSize: 9, color: T.green, fontFamily: "'DM Mono', monospace" }}>$0.003</span>
+          <span style={{ fontSize: 9, color: "#3A3828", fontFamily: "'DM Mono', monospace" }}>تكلفة اليوم</span>
+          <span style={{ fontSize: 9, color: C.green, fontFamily: "'DM Mono', monospace" }}>$0.003</span>
         </div>
         <div style={{ display: "flex", justifyContent: "space-between" }}>
-          <span style={{ fontSize: 9, color: T.textDim, fontFamily: "'DM Mono', monospace" }}>MODEL</span>
-          <span style={{ fontSize: 9, color: T.accent, fontFamily: "'DM Mono', monospace" }}>claude-s4</span>
+          <span style={{ fontSize: 9, color: "#3A3828", fontFamily: "'DM Mono', monospace" }}>النموذج</span>
+          <span style={{ fontSize: 9, color: C.gold, fontFamily: "'DM Mono', monospace" }}>تلقائي</span>
         </div>
       </div>
     </div>
@@ -456,12 +442,12 @@ function AgentPanel({ activeAgent, onSelect, thinking, currentAgent }: {
   return (
     <div style={{
       width: 200,
-      background: T.bgDeep,
-      borderLeft: `1px solid ${T.border}`,
+      background: C.ink2,
+      borderLeft: `1px solid ${C.line2}`,
       padding: "14px 12px",
       display: "flex", flexDirection: "column", gap: 10,
     }}>
-      <div style={{ fontSize: 9, color: T.textDim, letterSpacing: 1.5, fontFamily: "'DM Mono', monospace" }}>
+      <div style={{ fontSize: 9, color: "#3A3828", letterSpacing: 1.5, fontFamily: "'DM Mono', monospace" }}>
         AGENT SELECTOR
       </div>
 
@@ -469,7 +455,7 @@ function AgentPanel({ activeAgent, onSelect, thinking, currentAgent }: {
         <button key={a.id} onClick={() => onSelect(a.id)} style={{
           padding: "8px 10px",
           borderRadius: 9,
-          border: `1px solid ${activeAgent === a.id ? a.color + "50" : T.border}`,
+          border: `1px solid ${activeAgent === a.id ? a.color + "50" : C.line2}`,
           background: activeAgent === a.id ? a.color + "10" : "transparent",
           cursor: "pointer",
           textAlign: "right",
@@ -477,12 +463,12 @@ function AgentPanel({ activeAgent, onSelect, thinking, currentAgent }: {
         }}>
           <div style={{ display: "flex", alignItems: "center", gap: 6, justifyContent: "flex-end" }}>
             {thinking && currentAgent === a.id && <Dot color={a.color} pulse />}
-            <span style={{ fontSize: 11, color: activeAgent === a.id ? a.color : T.textMuted }}>
+            <span style={{ fontSize: 11, color: activeAgent === a.id ? a.color : C.stone2 }}>
               {a.name}
             </span>
             <span style={{ fontSize: 14, color: a.color }}>{a.icon}</span>
           </div>
-          <div style={{ fontSize: 9, color: T.textDim, marginTop: 2, fontFamily: "'DM Mono', monospace" }}>
+          <div style={{ fontSize: 9, color: "#3A3828", marginTop: 2, fontFamily: "'DM Mono', monospace" }}>
             {a.desc}
           </div>
         </button>
@@ -493,15 +479,15 @@ function AgentPanel({ activeAgent, onSelect, thinking, currentAgent }: {
           marginTop: 8,
           padding: "10px",
           borderRadius: 9,
-          background: T.accent + "08",
-          border: `1px solid ${T.accent}20`,
+          background: C.golddim,
+          border: `1px solid ${C.gold}30`,
         }}>
-          <div style={{ fontSize: 9, color: T.accent, fontFamily: "'DM Mono', monospace", marginBottom: 6 }}>
+          <div style={{ fontSize: 9, color: C.gold, fontFamily: "'DM Mono', monospace", marginBottom: 6 }}>
             ACTIVE
           </div>
           <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
             {["Intent ✅", "Graph ✅", "Execute 🔄"].map((s, i) => (
-              <div key={i} style={{ fontSize: 10, color: T.textMuted, fontFamily: "'DM Mono', monospace" }}>
+              <div key={i} style={{ fontSize: 10, color: C.stone2, fontFamily: "'DM Mono', monospace" }}>
                 {s}
               </div>
             ))}
@@ -518,7 +504,7 @@ export default function OneAgentOS() {
     {
       id: 1,
       role: "assistant",
-      content: "مرحباً. أنا OneAgent OS — نظام يوحّد 24 AI framework في واجهة واحدة.\n\nاكتب هدفك بالعربية أو الإنجليزية وسأختار أنسب framework تلقائياً.",
+      content: "**مرحباً بك في Jnus.**\n\nاكتب هدفك وسأتولى الباقي — من الفهم والتخطيط حتى التنفيذ الكامل.",
       intent: null,
     }
   ]);
@@ -625,7 +611,7 @@ export default function OneAgentOS() {
       setMessages((prev: any[]) => prev.map((m: any) =>
         m.id === assistantId ? {
           ...m,
-          content: `⚠️ تعذر الاتصال بالـ API. تأكد من تشغيل الخادم على ${API_BASE}\n\n**الخطأ:** ${err.message}`,
+          content: `**مرحباً بك في Jnus!**\n\nهذا وضع التجربة — لتشغيل النظام الكامل:\n\`\`\`bash\ndocker compose up\n\`\`\`\n\nبعدها أعد فتح هذه الصفحة وستعمل جميع الميزات.`,
           streaming: false,
         } : m
       ));
@@ -648,7 +634,7 @@ export default function OneAgentOS() {
     setActiveConvo(id);
     setMessages([{
       id: 1, role: "assistant",
-      content: "محادثة جديدة. ما هدفك؟",
+      content: "محادثة جديدة. كيف يمكنني مساعدتك؟",
       intent: null,
     }]);
   };
@@ -656,12 +642,12 @@ export default function OneAgentOS() {
   return (
     <>
       <style>{`
-        @import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Arabic:wght@300;400;500;600&family=DM+Mono:wght@400;500&display=swap');
+        @import url('https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;700;900&family=Noto+Kufi+Arabic:wght@300;400;500;600&family=DM+Mono:wght@400;500&display=swap');
         * { box-sizing: border-box; margin: 0; padding: 0; }
-        body { background: ${T.bg}; }
+        body { background: ${C.paper}; }
         ::-webkit-scrollbar { width: 4px; }
         ::-webkit-scrollbar-track { background: transparent; }
-        ::-webkit-scrollbar-thumb { background: ${T.borderHi}; border-radius: 2px; }
+        ::-webkit-scrollbar-thumb { background: ${C.line}; border-radius: 2px; }
         @keyframes fadeUp {
           from { opacity: 0; transform: translateY(8px); }
           to   { opacity: 1; transform: translateY(0); }
@@ -674,10 +660,6 @@ export default function OneAgentOS() {
           0%, 80%, 100% { transform: translateY(0); }
           40%            { transform: translateY(-5px); }
         }
-        @keyframes shimmer {
-          0%   { background-position: -200% center; }
-          100% { background-position: 200% center; }
-        }
         button { outline: none; }
         textarea { outline: none; resize: none; }
       `}</style>
@@ -685,9 +667,9 @@ export default function OneAgentOS() {
       <div style={{
         display: "flex",
         height: "100vh",
-        fontFamily: "'IBM Plex Sans Arabic', sans-serif",
-        background: T.bg,
-        color: T.text,
+        fontFamily: "'Noto Kufi Arabic', sans-serif",
+        background: C.paper,
+        color: C.txt,
         direction: "rtl",
         overflow: "hidden",
       }}>
@@ -705,29 +687,44 @@ export default function OneAgentOS() {
           {/* Header */}
           <div style={{
             padding: "12px 20px",
-            borderBottom: `1px solid ${T.border}`,
+            borderBottom: `1px solid ${C.line}`,
             display: "flex", alignItems: "center", justifyContent: "space-between",
-            background: T.bgDeep,
+            background: "rgba(245,243,239,.95)",
             backdropFilter: "blur(10px)",
           }}>
             <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-              <Dot color={T.green} pulse />
-              <span style={{ fontSize: 11, color: T.textMuted, fontFamily: "'DM Mono', monospace" }}>
-                24 frameworks · online
+              <Dot color={C.green} pulse />
+              <span style={{ fontSize: 11, color: C.muted, fontFamily: "'DM Mono', monospace" }}>
+                جاهز للمساعدة
               </span>
             </div>
 
-            <div style={{ display: "flex", gap: 6 }}>
-              {["Redis ✓", "Postgres ✓", "Qdrant ✓"].map((s, i) => (
-                <span key={i} style={{
-                  fontSize: 9, color: T.green,
-                  padding: "2px 7px",
-                  background: T.green + "10",
-                  border: `1px solid ${T.green}25`,
-                  borderRadius: 4,
-                  fontFamily: "'DM Mono', monospace",
-                }}>{s}</span>
-              ))}
+            <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
+              <span style={{
+                fontSize: 9, color: C.green,
+                padding: "2px 7px",
+                background: C.green + "10",
+                border: `1px solid ${C.green}25`,
+                borderRadius: 4,
+                fontFamily: "'DM Mono', monospace",
+              }}>متصل ✓</span>
+              <a href="/" style={{
+                padding: "5px 12px",
+                background: "transparent",
+                border: `1px solid ${C.line}`,
+                borderRadius: 6,
+                fontSize: 10,
+                color: C.muted,
+                cursor: "pointer",
+                fontFamily: "'DM Mono', monospace",
+                textDecoration: "none",
+                transition: "all 0.15s",
+              }}
+                onMouseEnter={e => { e.currentTarget.style.borderColor = C.gold; e.currentTarget.style.color = C.txt; }}
+                onMouseLeave={e => { e.currentTarget.style.borderColor = C.line; e.currentTarget.style.color = C.muted; }}
+              >
+                ← رجوع
+              </a>
             </div>
           </div>
 
@@ -741,15 +738,15 @@ export default function OneAgentOS() {
             {thinking && (
               <div style={{ display: "flex", gap: 12, marginBottom: 24 }}>
                 <div style={{
-                  width: 32, height: 32, borderRadius: 12,
-                  background: T.surface, border: `1px solid ${T.border}`,
+                  width: 32, height: 32, borderRadius: 11,
+                  background: C.ink, border: `1px solid ${C.line2}`,
                   display: "flex", alignItems: "center", justifyContent: "center",
-                  fontSize: 13, color: T.accentHi,
-                }}>◈</div>
+                  fontSize: 13, color: C.gold, fontFamily: "'Playfair Display', serif", fontWeight: 700,
+                }}>J</div>
                 <div style={{
                   padding: "12px 16px",
                   borderRadius: "4px 14px 14px 14px",
-                  background: T.surface, border: `1px solid ${T.border}`,
+                  background: "#fff", border: `1px solid ${C.line}`,
                 }}>
                   <TypingIndicator />
                 </div>
@@ -761,8 +758,8 @@ export default function OneAgentOS() {
           {/* Input */}
           <div style={{
             padding: "14px 20px 18px",
-            borderTop: `1px solid ${T.border}`,
-            background: T.bgDeep,
+            borderTop: `1px solid ${C.line}`,
+            background: "rgba(245,243,239,.97)",
           }}>
             {/* Agent pills */}
             <div style={{ display: "flex", gap: 6, marginBottom: 10, flexWrap: "wrap" }}>
@@ -775,26 +772,27 @@ export default function OneAgentOS() {
             <div style={{
               display: "flex", gap: 10, alignItems: "flex-end",
               padding: "10px 14px",
-              borderRadius: 14,
-              border: `1px solid ${input ? T.accent + "50" : T.border}`,
-              background: T.surface,
+              borderRadius: 16,
+              border: `1.5px solid ${input ? C.gold : C.line}`,
+              background: "#fff",
               transition: "border-color 0.2s",
+              boxShadow: input ? `0 2px 20px rgba(201,168,76,.15)` : "0 2px 12px rgba(0,0,0,.05)",
             }}>
               <textarea
                 ref={inputRef}
                 value={input}
                 onChange={e => setInput(e.target.value)}
                 onKeyDown={handleKeyDown}
-                placeholder="اكتب هدفك... (Enter للإرسال)"
+                placeholder="اكتب هدفك هنا... (Enter للإرسال)"
                 rows={1}
                 style={{
                   flex: 1,
                   background: "transparent",
                   border: "none",
-                  color: T.text,
+                  color: C.txt,
                   fontSize: 13,
                   lineHeight: 1.6,
-                  fontFamily: "'IBM Plex Sans Arabic', sans-serif",
+                  fontFamily: "'Noto Kufi Arabic', sans-serif",
                   maxHeight: 120,
                   overflowY: "auto",
                 }}
@@ -808,19 +806,16 @@ export default function OneAgentOS() {
                 onClick={sendMessage}
                 disabled={!input.trim() || thinking}
                 style={{
-                  width: 34, height: 34,
+                  width: 36, height: 36,
                   borderRadius: 10,
                   border: "none",
-                  background: input.trim() && !thinking
-                    ? `linear-gradient(135deg, ${T.accent}, ${T.teal})`
-                    : T.borderHi,
-                  color: input.trim() && !thinking ? "white" : T.textDim,
+                  background: input.trim() && !thinking ? C.ink : C.line,
+                  color: input.trim() && !thinking ? C.gold : C.dim,
                   cursor: input.trim() && !thinking ? "pointer" : "not-allowed",
-                  fontSize: 15,
+                  fontSize: 16,
                   display: "flex", alignItems: "center", justifyContent: "center",
                   flexShrink: 0,
                   transition: "all 0.2s",
-                  transform: input.trim() && !thinking ? "scale(1)" : "scale(0.95)",
                 }}
               >
                 ↑
@@ -831,11 +826,11 @@ export default function OneAgentOS() {
               marginTop: 7,
               display: "flex", justifyContent: "space-between", alignItems: "center",
             }}>
-              <span style={{ fontSize: 9, color: T.textDim, fontFamily: "'DM Mono', monospace" }}>
+              <span style={{ fontSize: 9, color: C.dim, fontFamily: "'DM Mono', monospace" }}>
                 Shift+Enter للسطر الجديد
               </span>
-              <span style={{ fontSize: 9, color: T.textDim, fontFamily: "'DM Mono', monospace" }}>
-                avg cost {'<'} $0.01/req
+              <span style={{ fontSize: 9, color: C.dim, fontFamily: "'DM Mono', monospace" }}>
+                متوسط التكلفة أقل من $0.01
               </span>
             </div>
           </div>

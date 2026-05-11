@@ -1,5 +1,6 @@
 """OneAgent OS — FastAPI Backend
 Main API server with SSE streaming for real-time agent responses.
+Supports both native /v1/chat and OpenAI-compatible /v1/chat/completions.
 """
 from __future__ import annotations
 
@@ -123,6 +124,21 @@ class HealthResponse(BaseModel):
     services: dict[str, str]
 
 
+# ── OpenAI-Compatible Models ───────────────────────────────────────
+
+class OpenAIMessage(BaseModel):
+    role: str = "user"
+    content: str
+
+
+class OpenAICompletionRequest(BaseModel):
+    model: str = Field(default="claude-s4", description="Model name")
+    messages: list[OpenAIMessage] = Field(..., description="Chat messages")
+    stream: bool = Field(default=True, description="Whether to stream the response")
+    session_id: Optional[str] = Field(None, description="Session ID")
+    user_id: Optional[str] = Field(None, description="User ID")
+
+
 # ── Endpoints ───────────────────────────────────────────────────────
 
 @app.get("/health", response_model=HealthResponse)
@@ -181,6 +197,157 @@ async def chat(request: ChatRequest):
 
     return StreamingResponse(
         event_generator(),
+        media_type="text/event-stream",
+        headers={
+            "Cache-Control": "no-cache",
+            "Connection": "keep-alive",
+            "X-Accel-Buffering": "no",
+        },
+    )
+
+
+@app.post("/v1/chat/completions")
+async def chat_completions(request: OpenAICompletionRequest):
+    """OpenAI-compatible chat completions endpoint.
+
+    Accepts OpenAI-style request format and returns OpenAI-style SSE stream.
+    This allows any OpenAI-compatible client (including the frontend) to connect.
+    """
+    if not state.orchestrator:
+        raise HTTPException(status_code=503, detail="Orchestrator not initialized")
+
+    # Extract the last user message
+    user_message = ""
+    for msg in reversed(request.messages):
+        if msg.role == "user":
+            user_message = msg.content
+            break
+
+    if not user_message:
+        raise HTTPException(status_code=400, detail="No user message found")
+
+    session_id = request.session_id or str(uuid.uuid4())
+    user_id = request.user_id or "anonymous"
+
+    async def openai_event_generator():
+        """Convert native StreamChunks to OpenAI-compatible SSE format"""
+        full_content = ""
+        intent_detected = None
+        agent_selected = None
+        is_error = False
+
+        try:
+            async for chunk in state.orchestrator.process(
+                message=user_message,
+                session_id=session_id,
+                user_id=user_id,
+                context={},
+            ):
+                if chunk.type == "token":
+                    full_content += chunk.content
+                    # OpenAI format: data: {"choices":[{"delta":{"content":"..."},"index":0}]}
+                    openai_chunk = {
+                        "id": f"chatcmpl-{uuid.uuid4().hex[:12]}",
+                        "object": "chat.completion.chunk",
+                        "created": int(time.time()),
+                        "model": request.model,
+                        "choices": [{
+                            "index": 0,
+                            "delta": {"content": chunk.content},
+                            "finish_reason": None,
+                        }],
+                    }
+                    yield f"data: {json.dumps(openai_chunk)}\n\n"
+
+                elif chunk.type == "intent":
+                    intent_detected = chunk.metadata.get("intent", "")
+                    # Send as a special delta with intent metadata
+                    intent_chunk = {
+                        "id": f"chatcmpl-{uuid.uuid4().hex[:12]}",
+                        "object": "chat.completion.chunk",
+                        "created": int(time.time()),
+                        "model": request.model,
+                        "choices": [{
+                            "index": 0,
+                            "delta": {
+                                "role": "assistant",
+                                "content": f"\n🔍 **Intent:** {chunk.content}\n",
+                            },
+                            "finish_reason": None,
+                        }],
+                    }
+                    yield f"data: {json.dumps(intent_chunk)}\n\n"
+
+                elif chunk.type == "agent":
+                    agent_selected = chunk.metadata.get("primary", "")
+                    agent_chunk = {
+                        "id": f"chatcmpl-{uuid.uuid4().hex[:12]}",
+                        "object": "chat.completion.chunk",
+                        "created": int(time.time()),
+                        "model": request.model,
+                        "choices": [{
+                            "index": 0,
+                            "delta": {
+                                "content": f"\n🤖 **Agent:** {chunk.content}\n",
+                            },
+                            "finish_reason": None,
+                        }],
+                    }
+                    yield f"data: {json.dumps(agent_chunk)}\n\n"
+
+                elif chunk.type == "status":
+                    # Send status updates as content
+                    status_chunk = {
+                        "id": f"chatcmpl-{uuid.uuid4().hex[:12]}",
+                        "object": "chat.completion.chunk",
+                        "created": int(time.time()),
+                        "model": request.model,
+                        "choices": [{
+                            "index": 0,
+                            "delta": {
+                                "content": f"\n⏳ {chunk.content}\n",
+                            },
+                            "finish_reason": None,
+                        }],
+                    }
+                    yield f"data: {json.dumps(status_chunk)}\n\n"
+
+                elif chunk.type == "error":
+                    is_error = True
+                    error_chunk = {
+                        "id": f"chatcmpl-{uuid.uuid4().hex[:12]}",
+                        "object": "chat.completion.chunk",
+                        "created": int(time.time()),
+                        "model": request.model,
+                        "choices": [{
+                            "index": 0,
+                            "delta": {
+                                "content": f"\n⚠️ {chunk.content}\n",
+                            },
+                            "finish_reason": None,
+                        }],
+                    }
+                    yield f"data: {json.dumps(error_chunk)}\n\n"
+
+        except Exception as e:
+            error_chunk = {
+                "id": f"chatcmpl-{uuid.uuid4().hex[:12]}",
+                "object": "chat.completion.chunk",
+                "created": int(time.time()),
+                "model": request.model,
+                "choices": [{
+                    "index": 0,
+                    "delta": {"content": f"\n❌ **Error:** {str(e)}\n"},
+                    "finish_reason": None,
+                }],
+            }
+            yield f"data: {json.dumps(error_chunk)}\n\n"
+
+        # Send the final [DONE] signal
+        yield "data: [DONE]\n\n"
+
+    return StreamingResponse(
+        openai_event_generator(),
         media_type="text/event-stream",
         headers={
             "Cache-Control": "no-cache",
