@@ -1,6 +1,6 @@
 """OneAgent OS — Hybrid LLM Router (Phase 5)
 Routes requests to the optimal LLM tier based on intent complexity and cost.
-Tiers: Ollama (free) → WindsurfAPI (near-free) → Claude/OpenAI (paid fallback)
+Tiers: DeepSeek (primary) → Ollama (free) → WindsurfAPI (near-free) → Claude/OpenAI (paid fallback)
 """
 from __future__ import annotations
 
@@ -12,6 +12,14 @@ from typing import Any
 # Complexity is 0.0 (simple) → 1.0 (very complex)
 
 LLM_TIERS = [
+    {
+        "name": "deepseek",
+        "base_url": os.getenv("DEEPSEEK_BASE_URL", "https://api.deepseek.com/v1"),
+        "api_key": os.getenv("DEEPSEEK_API_KEY", ""),
+        "models": [os.getenv("DEEPSEEK_MODEL", "deepseek-chat"), "deepseek-coder"],
+        "cost_per_1k": 0.00014,  # DeepSeek: $0.14/M tokens → $0.00014/1K
+        "max_complexity": 0.9,
+    },
     {
         "name": "ollama",
         "base_url": os.getenv("OLLAMA_URL", "http://ollama:11434/v1"),

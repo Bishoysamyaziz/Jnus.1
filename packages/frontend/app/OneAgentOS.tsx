@@ -26,12 +26,31 @@ const C = {
 
 // ── AGENT FRAMEWORKS ─────────────────────────────────────────────
 const AGENTS = [
-  { id: "auto",        name: "Auto",        icon: "◈", color: C.gold,   desc: "اختيار تلقائي" },
-  { id: "crewai",      name: "CrewAI",       icon: "⬡", color: "#3DD6C0", desc: "Multi-role" },
-  { id: "autogen",     name: "AutoGen",      icon: "◉", color: C.gold,   desc: "Group chat" },
-  { id: "metagpt",     name: "MetaGPT",      icon: "▣", color: "#F06292", desc: "Software Co." },
-  { id: "langchain",   name: "LangChain",    icon: "⟁", color: "#7B6EF6", desc: "Chain of thought" },
-  { id: "aider",       name: "Aider",        icon: "⌬", color: C.green,  desc: "Code editing" },
+  { id: "auto",          name: "Auto",          icon: "◉", color: C.gold,     desc: "اختيار تلقائي" },
+  { id: "crewai",        name: "CrewAI",        icon: "⚑", color: "#FF6B6B",  desc: "فرق متعددة الأدوار" },
+  { id: "autogen",       name: "AutoGen",       icon: "⚖", color: "#4ECDC4",  desc: "نقاش متعدد الوكلاء" },
+  { id: "metagpt",       name: "MetaGPT",       icon: "♜", color: "#45B7D1",  desc: "محاكاة شركة برمجيات" },
+  { id: "langchain",     name: "LangChain",     icon: "⟁", color: "#7B6EF6",  desc: "Chain of thought" },
+  { id: "aider",         name: "Aider",         icon: "⌬", color: C.green,    desc: "تحرير كود" },
+  { id: "openhands",     name: "OpenHands",     icon: "⌘", color: "#E17055",  desc: "بيئة تطوير كاملة" },
+  { id: "smolagents",    name: "smolagents",    icon: "⚡", color: "#FDCB6E",  desc: "وكلاء أدوات سريعة" },
+  { id: "huggingface",   name: "HuggingFace",   icon: "🤗", color: "#FFD43B",  desc: "مهام تعلم آلي" },
+  { id: "langgraph",     name: "LangGraph",     icon: "◈", color: "#6C5CE7",  desc: "سير عمل معقدة" },
+  { id: "haystack",      name: "Haystack",      icon: "◎", color: "#00B894",  desc: "RAG على المستندات" },
+  { id: "llamaindex",    name: "LlamaIndex",    icon: "🦙", color: "#E17055",  desc: "استعلام وثائق" },
+  { id: "camel",         name: "CAMEL",         icon: "🐫", color: "#FDCB6E",  desc: "تخصص عميق" },
+  { id: "agentverse",    name: "AgentVerse",    icon: "◉", color: "#A29BFE",  desc: "محاكاة سيناريوهات" },
+  { id: "taskweaver",    name: "TaskWeaver",    icon: "▦", color: "#55EFC4",  desc: "تحليل بيانات" },
+  { id: "babyagi",       name: "BabyAGI",       icon: "◈", color: "#FF7675",  desc: "تخطيط طويل المدى" },
+  { id: "swarm",         name: "Swarm",         icon: "⚙", color: "#74B9FF",  desc: "توجيه متخصص" },
+  { id: "semantic_kernel", name: "SemanticKernel", icon: "⊞", color: "#0984E3", desc: "تكامل مؤسسي" },
+  { id: "letta",         name: "Letta",         icon: "🧠", color: "#A29BFE",  desc: "ذاكرة طويلة المدى" },
+  { id: "mem0",          name: "Mem0",          icon: "💾", color: "#FD79A8",  desc: "شخصية عبر الجلسات" },
+  { id: "autogpt",       name: "AutoGPT",       icon: "🤖", color: "#E17055",  desc: "مهام ذاتية التوجيه" },
+  { id: "agentgpt",      name: "AgentGPT",      icon: "🎯", color: "#00CEC9",  desc: "تحليل أهداف" },
+  { id: "rasa",          name: "Rasa",          icon: "💬", color: "#6C5CE7",  desc: "محادثات منظمة" },
+  { id: "botpress",      name: "Botpress",      icon: "⚡", color: "#FDCB6E",  desc: "تدفقات بصرية" },
+  { id: "superagi",      name: "SuperAGI",      icon: "🚀", color: "#FF7675",  desc: "أتمتة ذاتية" },
 ];
 
 const INTENTS = [

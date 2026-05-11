@@ -2,4 +2,7 @@ name = "oneagent-os-frontend"
 compatibility_date = "2024-12-01"
 
 [env.production]
-vars = { API_URL = "https://oneagent-os-api.your-subdomain.workers.dev" }
+vars = { API_URL = "https://oneagent-os-api.bishoysamyaziz.workers.dev" }
+
+[env.production]
+routes = [{ pattern = "oneagent-os.pages.dev", custom_domain = true }]
