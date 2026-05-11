@@ -1,6 +1,7 @@
 name = "oneagent-os-api"
 main = "main.py"
 compatibility_date = "2024-12-01"
+compatibility_flags = ["python_workers"]
 
 [env.production]
 vars = { ENVIRONMENT = "production" }
