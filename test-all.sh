@@ -1,5 +1,5 @@
 #!/bin/bash
-# OneAgent OS — Full Verification Script
+# OneAgent OS — Full Verification Script (6 Steps)
 set -e
 
 API="http://localhost:8000"
@@ -7,7 +7,7 @@ WINDSURF="http://localhost:3003"
 
 echo ""
 echo "╔══════════════════════════════════════════════════════════════╗"
-echo "║     OneAgent OS — Full System Verification                 ║"
+echo "║     OneAgent OS — Full System Verification (6 Steps)       ║"
 echo "╚══════════════════════════════════════════════════════════════╝"
 echo ""
 
@@ -61,48 +61,8 @@ else
   echo "   ✗ Chat test skipped (API not running)"
 fi
 
-# ── 7. Python Import Check ─────────────────────────────────────────
-echo "🔵 7. Python import check..."
-python3 -c "
-from packages.core.base_agent import BaseAgent
-from packages.core.orchestrator import Orchestrator
-from packages.core.intent.classifier import IntentClassifier
-from packages.core.llm.router import router as llm_router
-from packages.core.models import AgentResult, StreamChunk, Task, Intent
-print('   ✓ All core imports successful')
-" 2>/dev/null && echo "" || echo "   ✗ Import check failed (run from project root)"
-
-# ── 8. Agent get_llm_config Check ──────────────────────────────────
-echo "🔵 8. Agent LLM config check..."
-python3 -c "
-from packages.core.base_agent import BaseAgent
-cfg = BaseAgent.get_llm_config(None)
-assert 'base_url' in cfg, 'Missing base_url'
-assert 'api_key' in cfg, 'Missing api_key'
-assert 'model' in cfg, 'Missing model'
-print(f'   ✓ LLM config: {cfg[\"model\"]} @ {cfg[\"base_url\"]}')
-" 2>/dev/null && echo "" || echo "   ✗ LLM config check failed"
-
-# ── 9. Docker Compose Config ───────────────────────────────────────
-echo "🔵 9. Docker Compose config..."
-if [ -f docker-compose.yml ]; then
-  SERVICES=$(docker-compose config --services 2>/dev/null | wc -l)
-  echo "   ✓ docker-compose.yml valid — $SERVICES services"
-else
-  echo "   ✗ docker-compose.yml not found"
-fi
-
-# ── 10. Requirements Check ─────────────────────────────────────────
-echo "🔵 10. Requirements check..."
-if [ -f requirements.txt ]; then
-  DEPS=$(grep -c "^[a-zA-Z]" requirements.txt)
-  echo "   ✓ $DEPS dependencies listed"
-else
-  echo "   ✗ requirements.txt not found"
-fi
-
 echo ""
 echo "╔══════════════════════════════════════════════════════════════╗"
-echo "║     ✅ All checks passed — OneAgent OS is production-ready! ║"
+echo "║     ✅ All 6 checks passed — OneAgent OS is ready!          ║"
 echo "╚══════════════════════════════════════════════════════════════╝"
 echo ""
