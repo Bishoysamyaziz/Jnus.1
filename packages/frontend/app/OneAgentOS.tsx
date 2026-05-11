@@ -2,6 +2,9 @@
 
 import { useState, useRef, useEffect, useCallback } from "react";
 
+const API_URL = process.env.NEXT_PUBLIC_API_URL ||
+                "http://localhost:8000";
+
 // ── PALETTE ──────────────────────────────────────────────────────
 const T = {
   bg:          "#080810",
@@ -524,12 +527,45 @@ export default function OneAgentOS() {
   const [activeAgent, setActiveAgent] = useState("auto");
   const [activeConvo, setActiveConvo] = useState(1);
   const [conversations, setConversations] = useState(SAMPLE_CONVOS);
+  const [stats, setStats] = useState({
+    frameworks: 24,
+    modules: 62,
+    tests: 11,
+    memory: 8,
+    loading: true,
+  });
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
+
+  useEffect(() => {
+    const fetchStats = async () => {
+      try {
+        const [agentsRes, metricsRes] = await Promise.allSettled([
+          fetch(`${API_URL}/v1/agents`),
+          fetch(`${API_URL}/metrics`),
+        ]);
+
+        const agents  = agentsRes.status  === "fulfilled" ? await agentsRes.value.json()  : null;
+        const metrics = metricsRes.status === "fulfilled" ? await metricsRes.value.json() : null;
+
+        setStats(prev => ({
+          ...prev,
+          frameworks: agents?.total              ?? prev.frameworks,
+          memory:     metrics?.active_sessions   ?? prev.memory,
+          loading: false,
+        }));
+      } catch {
+        setStats(prev => ({ ...prev, loading: false }));
+      }
+    };
+    fetchStats();
+    const interval = setInterval(fetchStats, 30_000);
+    return () => clearInterval(interval);
+  }, []);
 
   const sendMessage = useCallback(async () => {
     const text = input.trim();
