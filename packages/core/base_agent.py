@@ -4,6 +4,7 @@ The Orchestrator talks ONLY to BaseAgent — never directly to frameworks.
 """
 from __future__ import annotations
 
+import os
 from abc import ABC, abstractmethod
 from typing import Any
 
@@ -38,7 +39,6 @@ class BaseAgent(ABC):
         if hasattr(self, '_llm_config') and self._llm_config:
             return self._llm_config
         # Fallback: os.environ
-        import os
         return {
             "base_url": os.getenv("OPENAI_BASE_URL", "https://api.openai.com/v1"),
             "api_key":  os.getenv("OPENAI_API_KEY",  "sk-dummy"),
@@ -116,5 +116,8 @@ class AgentRegistry:
         if cls._initialized:
             return
         for name, agent in cls._agents.items():
-            await agent.validate()
+            try:
+                await agent.validate()
+            except Exception as e:
+                print(f"⚠️ Failed to initialize agent '{name}': {e}")
         cls._initialized = True

@@ -211,13 +211,16 @@ async def chat(request: ChatRequest):
 
     async def event_generator():
         try:
+            if state.orchestrator is None:
+                raise HTTPException(status_code=503, detail="Orchestrator not initialized")
             async for chunk in state.orchestrator.process(
                 message=request.message,
                 session_id=session_id,
                 user_id=user_id,
                 context=request.context or {},
             ):
-                yield chunk.to_sse()
+                if chunk is not None:
+                    yield chunk.to_sse()
         except Exception as e:
             error_chunk = StreamChunk(
                 type="error",
@@ -273,12 +276,16 @@ async def chat_completions(request: OpenAICompletionRequest):
             context["agent_preference"] = request.agent_preference
 
         try:
+            if state.orchestrator is None:
+                raise HTTPException(status_code=503, detail="Orchestrator not initialized")
             async for chunk in state.orchestrator.process(
                 message=user_message,
                 session_id=session_id,
                 user_id=user_id,
                 context=context,
             ):
+                if chunk is None:
+                    continue
                 if chunk.type == "token":
                     full_content += chunk.content
                     # OpenAI format: data: {"choices":[{"delta":{"content":"..."},"index":0}]}

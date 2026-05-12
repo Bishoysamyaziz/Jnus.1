@@ -91,12 +91,15 @@ class PlannerEngine:
     def estimate_duration(self, plan: ExecutionPlan) -> float:
         """Estimate total execution duration in seconds"""
         # Rough estimate: 2s per task + 1s per dependency
+        task_map = {t.id: t for t in plan.tasks}
         total = 0
         for group in plan.parallel_groups:
+            if not group:
+                continue
             max_task_time = max(
-                (2 + len([t for t in plan.tasks if t.id == tid][0].dependencies) if any(t.id == tid for t in plan.tasks) else 2)
+                2 + len(task_map.get(tid, Task()).dependencies)
                 for tid in group
-            ) if group else 0
+            )
             total += max_task_time
         return total
 

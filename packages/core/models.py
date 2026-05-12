@@ -1,6 +1,7 @@
 """OneAgent OS — Core Data Models"""
 from __future__ import annotations
 
+import json
 import uuid
 from dataclasses import dataclass, field
 from datetime import datetime
@@ -131,5 +132,5 @@ class StreamChunk:
     metadata: dict[str, Any] = field(default_factory=dict)
 
     def to_sse(self) -> str:
-        import json
-        return f"data: {json.dumps({'type': self.type, 'content': self.content, 'metadata': self.metadata})}\n\n"
+        data = {"type": self.type, "content": self.content, "metadata": self.metadata}
+        return f"data: {json.dumps(data)}\n\n"
