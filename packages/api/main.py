@@ -103,6 +103,7 @@ app.add_middleware(
     allow_origins=[
         "http://localhost:3000",
         "http://localhost:8000",
+        "https://oneagent-os.pages.dev",
         "https://jnus.pages.dev",
         "https://jnus.com",
     ],

@@ -1,0 +1,166 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>OneAgent OS — الذكاء الاصطناعي الموحد</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+            background: linear-gradient(135deg, #0f0c29, #302b63, #24243e);
+            color: #e0e0e0;
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            padding: 2rem;
+        }
+        .container {
+            max-width: 800px;
+            width: 100%;
+            text-align: center;
+        }
+        h1 {
+            font-size: 3rem;
+            font-weight: 800;
+            background: linear-gradient(90deg, #00d2ff, #3a7bd5, #a855f7);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            margin-bottom: 0.5rem;
+        }
+        .subtitle {
+            font-size: 1.2rem;
+            color: #94a3b8;
+            margin-bottom: 2rem;
+        }
+        .status-card {
+            background: rgba(255,255,255,0.05);
+            border: 1px solid rgba(255,255,255,0.1);
+            border-radius: 16px;
+            padding: 2rem;
+            margin: 2rem 0;
+            backdrop-filter: blur(10px);
+        }
+        .status-dot {
+            display: inline-block;
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            background: #22c55e;
+            margin-left: 8px;
+            animation: pulse 2s infinite;
+        }
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
+        .status-text {
+            font-size: 1.1rem;
+            color: #22c55e;
+        }
+        .features {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 1rem;
+            margin: 2rem 0;
+        }
+        .feature {
+            background: rgba(255,255,255,0.03);
+            border: 1px solid rgba(255,255,255,0.08);
+            border-radius: 12px;
+            padding: 1.5rem;
+            transition: all 0.3s;
+        }
+        .feature:hover {
+            background: rgba(255,255,255,0.08);
+            transform: translateY(-2px);
+        }
+        .feature-icon { font-size: 2rem; margin-bottom: 0.5rem; }
+        .feature-title { font-weight: 600; margin-bottom: 0.3rem; }
+        .feature-desc { font-size: 0.9rem; color: #94a3b8; }
+        .links {
+            display: flex;
+            gap: 1rem;
+            justify-content: center;
+            flex-wrap: wrap;
+            margin-top: 2rem;
+        }
+        .btn {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+            padding: 0.75rem 1.5rem;
+            border-radius: 8px;
+            text-decoration: none;
+            font-weight: 600;
+            transition: all 0.3s;
+            border: 1px solid rgba(255,255,255,0.2);
+            color: #e0e0e0;
+            background: rgba(255,255,255,0.05);
+        }
+        .btn-primary {
+            background: linear-gradient(90deg, #3a7bd5, #a855f7);
+            border: none;
+        }
+        .btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 20px rgba(0,0,0,0.3);
+        }
+        .footer {
+            margin-top: 3rem;
+            color: #64748b;
+            font-size: 0.9rem;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🧠 OneAgent OS</h1>
+        <p class="subtitle">نظام الذكاء الاصطناعي الموحد — 24 إطار عمل في واجهة واحدة</p>
+
+        <div class="status-card">
+            <span class="status-dot"></span>
+            <span class="status-text">النظام يعمل — API جاهز</span>
+            <p style="margin-top: 1rem; color: #94a3b8;">
+                تم الدمج مع Cloudflare Workers &bull; 24 Agent Framework &bull; DeepSeek AI
+            </p>
+        </div>
+
+        <div class="features">
+            <div class="feature">
+                <div class="feature-icon">🤖</div>
+                <div class="feature-title">24 Agent</div>
+                <div class="feature-desc">LangChain, CrewAI, AutoGen, Aider, Swarm وغيرهم</div>
+            </div>
+            <div class="feature">
+                <div class="feature-icon">🧩</div>
+                <div class="feature-title">توجيه ذكي</div>
+                <div class="feature-desc">تصنيف النية واختيار أفضل إطار تلقائياً</div>
+            </div>
+            <div class="feature">
+                <div class="feature-icon">⚡</div>
+                <div class="feature-title">Cloudflare</div>
+                <div class="feature-desc">استضافة على الحافة — سرعة قصوى حول العالم</div>
+            </div>
+            <div class="feature">
+                <div class="feature-icon">🔐</div>
+                <div class="feature-title">آمن</div>
+                <div class="feature-desc">مفاتيح API مشفرة — CORS محدد — Rate Limiting</div>
+            </div>
+        </div>
+
+        <div class="links">
+            <a href="/chat" class="btn btn-primary">💬 الدردشة</a>
+            <a href="/health" class="btn">🔍 Health Check</a>
+            <a href="/v1/agents" class="btn">📋 Agents</a>
+            <a href="/docs" class="btn">📖 API Docs</a>
+        </div>
+
+        <div class="footer">
+            OneAgent OS &copy; 2026 — مبني بـ ❤️ و 24 إطار عمل
+        </div>
+    </div>
+</body>
+</html>
