@@ -38,7 +38,6 @@ mem0ai==0.1.20
 aider-chat==0.60.0
 smolagents==0.1.0
 huggingface-hub==0.25.0
-rasa==3.6.2
 
 # --- Agent Frameworks (GitHub-only — installed via pip install git+) ---
 # openai-swarm:     pip install git+https://github.com/openai/swarm.git
@@ -68,7 +67,7 @@ celery[redis]==5.3.6
 flower==2.0.1          # Celery monitoring dashboard
 
 # --- Auth ---
-fastapi-users[asyncpg]==13.0.0
+fastapi-users[sqlalchemy]==12.1.3
 python-jose[cryptography]==3.3.0
 passlib[bcrypt]==1.7.4
 

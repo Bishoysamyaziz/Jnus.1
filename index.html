@@ -116,6 +116,13 @@
     </style>
 </head>
 <body>
+    <script>
+        const API = "https://potential-invention-vxvvp7v4vwgh6g64-8000.app.github.dev";
+        fetch(API + "/health")
+            .then(r => r.json())
+            .then(d => console.log("✅ API Health:", d))
+            .catch(e => console.error("❌ API Error:", e));
+    </script>
     <div class="container">
         <h1>🧠 OneAgent OS</h1>
         <p class="subtitle">نظام الذكاء الاصطناعي الموحد — 24 إطار عمل في واجهة واحدة</p>
