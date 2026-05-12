@@ -6,10 +6,6 @@ compatibility_flags = ["python_workers"]
 [vars]
 ENVIRONMENT = "production"
 
-[[services]]
-binding = "AI"
-service = "ai"
-
 [[d1_databases]]
 binding = "DB"
 database_name = "oneagent-os"
