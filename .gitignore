@@ -17,6 +17,7 @@ node_modules/
 # Environment
 .env
 .env.local
+CLOUDFLARE_CONFIG.md
 
 # Docker
 .docker-data/
@@ -39,4 +40,3 @@ packages/frontend/.wrangler/
 packages/frontend/out/
 packages/api/.wrangler/
 packages/api/out/
-
