@@ -36,10 +36,23 @@ if ! command -v wrangler &> /dev/null; then
     npm install -g wrangler
 fi
 
-# ── Authenticate with Cloudflare ──────────────────────────────────
+# ── Authenticate with Cloudflare using deploy token ───────────────
 echo -e "${CYAN}━━━ Authenticating with Cloudflare ─━━${NC}"
-echo "$CLOUDFLARE_API_TOKEN" | wrangler login --token-stdin 2>/dev/null || \
-    wrangler login
+
+# Try primary deploy token first, then fallback to secondary
+if [ -n "${CLOUDFLARE_API_TOKEN_DEPLOY:-}" ]; then
+    echo "$CLOUDFLARE_API_TOKEN_DEPLOY" | wrangler login --token-stdin
+    echo -e "${GREEN}✓ Authenticated with primary deploy token${NC}"
+elif [ -n "${CLOUDFLARE_API_TOKEN_DEPLOY2:-}" ]; then
+    echo "$CLOUDFLARE_API_TOKEN_DEPLOY2" | wrangler login --token-stdin
+    echo -e "${GREEN}✓ Authenticated with secondary deploy token${NC}"
+elif [ -n "${CLOUDFLARE_API_TOKEN:-}" ]; then
+    echo "$CLOUDFLARE_API_TOKEN" | wrangler login --token-stdin
+    echo -e "${GREEN}✓ Authenticated with API token${NC}"
+else
+    echo -e "${RED}✗ No Cloudflare token found in .env${NC}"
+    exit 1
+fi
 
 # ── Deploy API Worker with secrets ────────────────────────────────
 echo -e "${CYAN}━━━ Deploying API Worker ─━━${NC}"
@@ -52,6 +65,9 @@ echo "$DEEPSEEK_API_KEY" | wrangler secret put DEEPSEEK_API_KEY --env production
 
 echo -e "${YELLOW}→ Setting DEEPSEEK_BASE_URL as secret...${NC}"
 echo "$DEEPSEEK_BASE_URL" | wrangler secret put DEEPSEEK_BASE_URL --env production
+
+echo -e "${YELLOW}→ Setting DEEPSEEK_MODEL as secret...${NC}"
+echo "$DEEPSEEK_MODEL" | wrangler secret put DEEPSEEK_MODEL --env production
 
 echo -e "${YELLOW}→ Deploying API Worker...${NC}"
 wrangler deploy --env production
