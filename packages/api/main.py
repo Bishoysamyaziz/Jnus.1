@@ -479,4 +479,14 @@ if __name__ == "__main__":
     import uvicorn
     port = int(os.getenv("API_PORT", "8000"))
     host = os.getenv("API_HOST", "0.0.0.0")
-    uvicorn.run("packages.api.main:app", host=host, port=port, reload=True)
+    reload_mode = os.getenv("API_RELOAD", "false").lower() in {"1", "true", "yes"}
+    workers = max(1, int(os.getenv("API_WORKERS", "1")))
+
+    uvicorn.run(
+        "packages.api.main:app",
+        host=host,
+        port=port,
+        reload=reload_mode,
+        workers=workers,
+        log_level="info",
+    )
