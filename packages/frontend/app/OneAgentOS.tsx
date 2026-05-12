@@ -4,6 +4,7 @@ import { useState, useRef, useEffect, useCallback } from "react";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL ||
                 "http://localhost:8000";
+// ملاحظة: API_URL هو المصدر الوحيد — لا يوجد API_BASE مكرر
 
 // ── JNUS PALETTE ──────────────────────────────────────────────────
 const C = {
@@ -68,12 +69,13 @@ const SAMPLE_CONVOS = [
   { id: 3, title: "خطة تسويق لمنتج SaaS",              intent: "PLANNING", time: "منذ يومين" },
 ];
 
-// ── API CONFIGURATION ──────────────────────────────────────────────
-const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
-
 // ── SSE STREAMING CLIENT ───────────────────────────────────────────
-async function* streamChat(message: string, sessionId: string) {
-  const response = await fetch(`${API_BASE}/v1/chat/completions`, {
+// ✅ B4 Fix: يتعامل مع جميع أنواع الـ SSE chunks (token, intent, agent, status, error, done)
+// يدعم تنسيقين:
+//   1. OpenAI-compatible: data: {"choices":[{"delta":{"content":"..."}}]}
+//   2. Native Jnus:       data: {"type":"token","content":"...","metadata":{...}}
+async function* streamChat(message: string, sessionId: string, agentPreference?: string) {
+  const response = await fetch(`${API_URL}/v1/chat/completions`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
@@ -82,6 +84,7 @@ async function* streamChat(message: string, sessionId: string) {
       stream: true,
       session_id: sessionId,
       user_id: "anonymous",
+      agent_preference: agentPreference !== "auto" ? agentPreference : undefined,
     }),
   });
 
@@ -105,11 +108,20 @@ async function* streamChat(message: string, sessionId: string) {
       if (line.startsWith("data: ")) {
         const data = line.slice(6).trim();
         if (data === "[DONE]") return;
+
         try {
           const parsed = JSON.parse(data);
-          const content = parsed.choices?.[0]?.delta?.content || "";
-          if (content) {
-            yield { type: "token", content };
+
+          // ✅ Format 1: OpenAI-compatible {choices: [{delta: {content}}]}
+          if (parsed.choices) {
+            const content = parsed.choices[0]?.delta?.content || "";
+            if (content) {
+              yield { type: "token", content };
+            }
+          }
+          // ✅ Format 2: Native Jnus {type, content, metadata}
+          else if (parsed.type && parsed.content) {
+            yield { type: parsed.type, content: parsed.content };
           }
         } catch {
           // Skip malformed JSON
@@ -532,6 +544,7 @@ export default function OneAgentOS() {
   const [activeAgent, setActiveAgent] = useState("auto");
   const [activeConvo, setActiveConvo] = useState(1);
   const [conversations, setConversations] = useState(SAMPLE_CONVOS);
+  const [apiOnline, setApiOnline] = useState<boolean | null>(null); // null = checking, true = online, false = offline
   const [stats, setStats] = useState({
     frameworks: 24,
     modules: 62,
@@ -557,6 +570,10 @@ export default function OneAgentOS() {
         const agents  = agentsRes.status  === "fulfilled" ? await agentsRes.value.json()  : null;
         const metrics = metricsRes.status === "fulfilled" ? await metricsRes.value.json() : null;
 
+        // ✅ تحديث حالة الاتصال بناءً على نجاح الـ API
+        const online = agents !== null || metrics !== null;
+        setApiOnline(online);
+
         setStats(prev => ({
           ...prev,
           frameworks: agents?.total              ?? prev.frameworks,
@@ -564,6 +581,7 @@ export default function OneAgentOS() {
           loading: false,
         }));
       } catch {
+        setApiOnline(false);
         setStats(prev => ({ ...prev, loading: false }));
       }
     };
@@ -601,7 +619,7 @@ export default function OneAgentOS() {
       // Stream from real API
       let fullContent = "";
 
-      for await (const chunk of streamChat(text, sessionId)) {
+      for await (const chunk of streamChat(text, sessionId, activeAgent)) {
         const { type, content } = chunk;
 
         switch (type) {
@@ -609,6 +627,42 @@ export default function OneAgentOS() {
             fullContent += content;
             setMessages((prev: any[]) => prev.map((m: any) =>
               m.id === assistantId ? { ...m, content: fullContent } : m
+            ));
+            break;
+
+          case "intent":
+            fullContent += `\n\n🔍 **Intent:** ${content}\n`;
+            setMessages((prev: any[]) => prev.map((m: any) =>
+              m.id === assistantId ? { ...m, content: fullContent } : m
+            ));
+            break;
+
+          case "agent":
+            fullContent += `\n\n🤖 **Agent:** ${content}\n`;
+            setMessages((prev: any[]) => prev.map((m: any) =>
+              m.id === assistantId ? { ...m, content: fullContent } : m
+            ));
+            break;
+
+          case "status":
+            // Show status updates inline
+            fullContent += `\n⏳ ${content}\n`;
+            setMessages((prev: any[]) => prev.map((m: any) =>
+              m.id === assistantId ? { ...m, content: fullContent } : m
+            ));
+            break;
+
+          case "routing":
+            fullContent += `\n⚡ ${content}\n`;
+            setMessages((prev: any[]) => prev.map((m: any) =>
+              m.id === assistantId ? { ...m, content: fullContent } : m
+            ));
+            break;
+
+          case "done":
+            fullContent += `\n\n✅ ${content}`;
+            setMessages((prev: any[]) => prev.map((m: any) =>
+              m.id === assistantId ? { ...m, content: fullContent, streaming: false } : m
             ));
             break;
 
@@ -621,10 +675,6 @@ export default function OneAgentOS() {
         }
       }
 
-      // Mark as done
-      setMessages((prev: any[]) => prev.map((m: any) =>
-        m.id === assistantId ? { ...m, streaming: false } : m
-      ));
     } catch (err: any) {
       // Fallback: if API is not available, show a friendly message
       setMessages((prev: any[]) => prev.map((m: any) =>
@@ -720,13 +770,16 @@ export default function OneAgentOS() {
 
             <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
               <span style={{
-                fontSize: 9, color: C.green,
+                fontSize: 9,
+                color: apiOnline === true ? C.green : apiOnline === false ? C.red : C.stone,
                 padding: "2px 7px",
-                background: C.green + "10",
-                border: `1px solid ${C.green}25`,
+                background: apiOnline === true ? C.green + "10" : apiOnline === false ? C.red + "10" : "transparent",
+                border: `1px solid ${apiOnline === true ? C.green + "25" : apiOnline === false ? C.red + "25" : C.line}`,
                 borderRadius: 4,
                 fontFamily: "'DM Mono', monospace",
-              }}>متصل ✓</span>
+              }}>
+                {apiOnline === true ? "متصل ✓" : apiOnline === false ? "غير متصل ✗" : "جاري الفحص..."}
+              </span>
               <a href="/" style={{
                 padding: "5px 12px",
                 background: "transparent",

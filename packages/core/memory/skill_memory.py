@@ -85,17 +85,22 @@ class SkillMemory:
         return None
 
     def _simple_embed(self, text: str) -> list[float]:
-        """Simple deterministic embedding for when no embedding model is available"""
-        import hashlib
-        # Create a 384-dimensional vector from hash
-        hash_bytes = hashlib.sha256(text.encode()).digest()
-        # Expand to 384 dimensions using multiple hash iterations
-        vector = []
-        for i in range(384):
-            h = hashlib.sha256(f"{text}:{i}".encode()).digest()
-            val = int.from_bytes(h[:4], "big") / (2**32 - 1)
-            vector.append(val * 2 - 1)  # Normalize to [-1, 1]
-        return vector
+        """Real embedding using FastEmbed (BGE-small) — replaces SHA256 hash hack"""
+        try:
+            from fastembed import TextEmbedding
+            # Lazy-init model (singleton pattern)
+            if not hasattr(self, '_embed_model'):
+                self._embed_model = TextEmbedding("BAAI/bge-small-en-v1.5")
+            return list(self._embed_model.embed([text]))[0].tolist()
+        except ImportError:
+            # Fallback: deterministic hash-based embedding (last resort)
+            import hashlib
+            vector = []
+            for i in range(384):
+                h = hashlib.sha256(f"{text}:{i}".encode()).digest()
+                val = int.from_bytes(h[:4], "big") / (2**32 - 1)
+                vector.append(val * 2 - 1)
+            return vector
 
     async def health(self) -> bool:
         try:

@@ -30,10 +30,17 @@ from core.models import StreamChunk
 
 # ── Auth ───────────────────────────────────────────────────────────
 from fastapi_users import FastAPIUsers
-from .auth import auth_backend, UserRead, UserCreate
+from .auth import (
+    auth_backend,
+    UserRead,
+    UserCreate,
+    UserUpdate,
+    get_user_manager,
+    create_db_and_tables,
+)
 
 fastapi_users = FastAPIUsers(
-    get_user_manager=lambda: None,  # Will be replaced with real DB-backed manager
+    get_user_manager,
     auth_backends=[auth_backend],
 )
 
@@ -56,10 +63,28 @@ state = AppState()
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """Initialize services on startup"""
+    # ✅ إنشاء جداول قاعدة البيانات للمستخدمين (Auth)
+    try:
+        await create_db_and_tables()
+        print("✅ Database tables created for Auth")
+    except Exception as e:
+        print(f"⚠️ Database tables not created (PostgreSQL may not be running): {e}")
+
     # Initialize orchestrator
     classifier = IntentClassifier()
     orchestrator = Orchestrator(classifier=classifier)
     state.orchestrator = orchestrator
+
+    # ✅ تسجيل جميع الـ 24 Agent تلقائياً عند Startup
+    from packages.agents import AGENT_REGISTRY
+    for name, agent_cls in AGENT_REGISTRY.items():
+        try:
+            agent_instance = agent_cls()
+            AgentRegistry.register(agent_instance)
+        except Exception as e:
+            print(f"⚠️ Failed to register agent '{name}': {e}")
+
+    print(f"✅ Registered {len(AgentRegistry._agents)} agents at startup")
     yield
     # Cleanup on shutdown
     state.orchestrator = None
@@ -72,13 +97,18 @@ app = FastAPI(
     lifespan=lifespan,
 )
 
-# CORS — allow frontend from any origin in development
+# CORS — محددة وليست wildcard لتجنب خطأ المتصفح
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=[
+        "http://localhost:3000",
+        "http://localhost:8000",
+        "https://jnus.pages.dev",
+        "https://jnus.com",
+    ],
     allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
+    allow_methods=["GET", "POST", "DELETE", "OPTIONS"],
+    allow_headers=["Authorization", "Content-Type", "X-Requested-With"],
 )
 
 # ── Rate Limiting ──────────────────────────────────────────────────
@@ -137,6 +167,7 @@ class OpenAICompletionRequest(BaseModel):
     stream: bool = Field(default=True, description="Whether to stream the response")
     session_id: Optional[str] = Field(None, description="Session ID")
     user_id: Optional[str] = Field(None, description="User ID")
+    agent_preference: Optional[str] = Field(None, description="Preferred agent framework (e.g. 'crewai', 'aider', 'auto')")
 
 
 # ── Endpoints ───────────────────────────────────────────────────────
@@ -236,12 +267,17 @@ async def chat_completions(request: OpenAICompletionRequest):
         agent_selected = None
         is_error = False
 
+        # ✅ B2 Fix: تمرير agent_preference إلى Orchestrator
+        context = {}
+        if request.agent_preference and request.agent_preference != "auto":
+            context["agent_preference"] = request.agent_preference
+
         try:
             async for chunk in state.orchestrator.process(
                 message=user_message,
                 session_id=session_id,
                 user_id=user_id,
-                context={},
+                context=context,
             ):
                 if chunk.type == "token":
                     full_content += chunk.content
@@ -295,6 +331,22 @@ async def chat_completions(request: OpenAICompletionRequest):
                     }
                     yield f"data: {json.dumps(agent_chunk)}\n\n"
 
+                elif chunk.type == "routing":
+                    routing_chunk = {
+                        "id": f"chatcmpl-{uuid.uuid4().hex[:12]}",
+                        "object": "chat.completion.chunk",
+                        "created": int(time.time()),
+                        "model": request.model,
+                        "choices": [{
+                            "index": 0,
+                            "delta": {
+                                "content": f"\n⚡ {chunk.content}\n",
+                            },
+                            "finish_reason": None,
+                        }],
+                    }
+                    yield f"data: {json.dumps(routing_chunk)}\n\n"
+
                 elif chunk.type == "status":
                     # Send status updates as content
                     status_chunk = {
@@ -311,6 +363,23 @@ async def chat_completions(request: OpenAICompletionRequest):
                         }],
                     }
                     yield f"data: {json.dumps(status_chunk)}\n\n"
+
+                elif chunk.type == "done":
+                    # Done chunk — send final content and finish
+                    done_chunk = {
+                        "id": f"chatcmpl-{uuid.uuid4().hex[:12]}",
+                        "object": "chat.completion.chunk",
+                        "created": int(time.time()),
+                        "model": request.model,
+                        "choices": [{
+                            "index": 0,
+                            "delta": {
+                                "content": f"\n\n{chunk.content}\n",
+                            },
+                            "finish_reason": None,
+                        }],
+                    }
+                    yield f"data: {json.dumps(done_chunk)}\n\n"
 
                 elif chunk.type == "error":
                     is_error = True

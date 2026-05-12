@@ -102,11 +102,14 @@ class Orchestrator:
                 complexity=complexity,
             )
 
-            # حطي الـ tier في البيئة عشان كل agent يقرأه
-            import os
-            os.environ["OPENAI_BASE_URL"] = selected_tier["base_url"]
-            os.environ["OPENAI_API_KEY"]  = selected_tier["api_key"] or "sk-dummy"
-            os.environ["DEFAULT_MODEL"]   = selected_tier["models"][0]
+            # ✅ Safe: نمرر الـ config كـ parameter بدلاً من os.environ (Race Condition Fix)
+            llm_config = {
+                "base_url": selected_tier["base_url"],
+                "api_key":  selected_tier["api_key"] or "sk-dummy",
+                "model":    selected_tier["models"][0],
+            }
+            # ✅ B6 Fix: تخزين llm_config في الـ Orchestrator لاستخدامه في _execute_single_task
+            self._llm_config = llm_config
 
             yield StreamChunk(
                 type="routing",
@@ -123,7 +126,12 @@ class Orchestrator:
             # ── Step 2: Select Agents ──
             yield StreamChunk(type="status", content=f"🤖 اختيار الـ frameworks المناسبة...", metadata={"step": "select"})
 
-            agent_names = await select_agent(intent)
+            # ✅ B2 Fix: استخدام agent_preference من context إن وُجد
+            agent_preference = context.get("agent_preference")
+            if agent_preference:
+                agent_names = [agent_preference]
+            else:
+                agent_names = await select_agent(intent)
             yield StreamChunk(
                 type="agent",
                 content=f"تم اختيار: {', '.join(agent_names)}",
@@ -262,6 +270,13 @@ class Orchestrator:
 
         start = time.time()
         try:
+            # ✅ B6 Fix: تعيين llm_config على الـ agent قبل التنفيذ
+            # هذا يضمن أن الـ agent يستخدم llm_config المُمرر من Orchestrator
+            # وليس os.environ (الذي قد يكون فارغاً أو قديماً)
+            if hasattr(agent, 'set_llm_config'):
+                agent.set_llm_config(self._llm_config if hasattr(self, '_llm_config') else {})
+
+            # ✅ تمرير memory + llm_config إلى agent.execute
             result = await agent.execute(task, memory)
             result.duration_ms = (time.time() - start) * 1000
             return result

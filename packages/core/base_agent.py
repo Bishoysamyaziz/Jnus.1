@@ -29,15 +29,25 @@ class BaseAgent(ABC):
     def get_llm_config(self) -> dict:
         """
         Single source of truth للـ LLM config.
-        لما OPENAI_BASE_URL متضبّطة على WindsurfAPI،
-        كل agent هيستخدم WindsurfAPI أوتوماتيك.
+        ✅ B6 Fix: تُقرأ من llm_config المُمرر من Orchestrator أولاً،
+        ثم os.environ كـ fallback.
+        هذا يمنع مشكلة "Memory لا تُمرر" حيث أن الـ config
+        كانت تُقرأ من os.environ فقط وتتجاهل llm_config المُمرر.
         """
+        # ✅ استخدام llm_config المُمرر من Orchestrator (إن وُجد)
+        if hasattr(self, '_llm_config') and self._llm_config:
+            return self._llm_config
+        # Fallback: os.environ
         import os
         return {
             "base_url": os.getenv("OPENAI_BASE_URL", "https://api.openai.com/v1"),
             "api_key":  os.getenv("OPENAI_API_KEY",  "sk-dummy"),
             "model":    os.getenv("DEFAULT_MODEL",   "claude-sonnet-4-6"),
         }
+
+    def set_llm_config(self, config: dict):
+        """✅ B6 Fix: تعيين llm_config من Orchestrator"""
+        self._llm_config = config
 
     @abstractmethod
     async def execute(self, task: Task, memory: MemoryContext) -> AgentResult:
