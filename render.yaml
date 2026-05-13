@@ -33,6 +33,8 @@ services:
         generateValue: true
       - key: FRONTEND_URL
         value: https://oneagent-os.pages.dev
+      - key: ALLOWED_ORIGINS
+        value: https://oneagent-os.pages.dev,http://localhost:3000
       - key: CORS_ORIGIN
         value: https://oneagent-os.pages.dev
       - key: NEXT_PUBLIC_API_URL
