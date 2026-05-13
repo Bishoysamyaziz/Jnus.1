@@ -16,13 +16,22 @@ from typing import Any, Optional
 DB_PATH = os.getenv("DATABASE_PATH", "/tmp/oneagent.db")
 
 
-def get_connection() -> sqlite3.Connection:
-    """Get a database connection."""
-    conn = sqlite3.connect(DB_PATH)
+def _create_connection(db_path: str) -> sqlite3.Connection:
+    """Create a SQLite connection with safe defaults for durability and concurrency."""
+    conn = sqlite3.connect(db_path, timeout=30, check_same_thread=False)
     conn.row_factory = sqlite3.Row
     conn.execute("PRAGMA journal_mode=WAL")
+    conn.execute("PRAGMA synchronous=NORMAL")
     conn.execute("PRAGMA foreign_keys=ON")
+    conn.execute("PRAGMA busy_timeout=5000")
+    conn.execute("PRAGMA temp_store=MEMORY")
+    conn.execute("PRAGMA cache_size=-2000")
     return conn
+
+
+def get_connection() -> sqlite3.Connection:
+    """Get a database connection."""
+    return _create_connection(DB_PATH)
 
 
 def init_db():
@@ -85,9 +94,7 @@ class UsageTracker:
         self.db_path = db_path
 
     def _get_conn(self) -> sqlite3.Connection:
-        conn = sqlite3.connect(self.db_path)
-        conn.row_factory = sqlite3.Row
-        return conn
+        return _create_connection(self.db_path)
 
     def get_user(self, user_id: str) -> Optional[dict]:
         """Get user by ID."""
