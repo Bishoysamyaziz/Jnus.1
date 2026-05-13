@@ -158,10 +158,15 @@ class UsageTracker:
         error: Optional[str] = None,
         cost: float = 0,
     ) -> str:
-        """Log a usage event."""
+        """Log a usage event. Auto-creates user if not exists."""
         conn = self._get_conn()
         log_id = str(uuid.uuid4())
         try:
+            # Ensure user exists (auto-create anonymous users)
+            conn.execute(
+                "INSERT OR IGNORE INTO users (id, email) VALUES (?, ?)",
+                (user_id, f"{user_id[:8]}@oneagent.local"),
+            )
             conn.execute(
                 """INSERT INTO usage_logs 
                    (id, user_id, action, prompt, mode, result_summary, duration, status, error, cost)

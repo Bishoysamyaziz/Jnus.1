@@ -1,10 +1,12 @@
 """OneAgent OS — FastAPI Backend (Production MVP)
 /api endpoints: health, chat, run, usage
+Uses Orchestrator with all 24 agents for /run and /chat
 """
 from __future__ import annotations
 
 import json
 import os
+import sys
 import time
 import uuid
 from contextlib import asynccontextmanager
@@ -15,13 +17,21 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import StreamingResponse, JSONResponse
 from pydantic import BaseModel, Field
 
+# ── Fix imports ──────────────────────────────────────────────────
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
+
 from .database import init_db, UsageTracker
 from .agent_service import AgentService
+
+# ── Orchestrator (24 agents) ──────────────────────────────────────
+from core.orchestrator import Orchestrator
+from core.intent.classifier import IntentClassifier
 
 # ── App State ──────────────────────────────────────────────────────
 
 class AppState:
     agent: AgentService | None = None
+    orchestrator: Orchestrator | None = None
     usage: UsageTracker | None = None
     start_time: float = time.time()
 
@@ -61,15 +71,18 @@ async def lifespan(app: FastAPI):
     except Exception as e:
         print(f"Database init failed: {e}")
     state.agent = AgentService(timeout=600)
+    state.orchestrator = Orchestrator(classifier=IntentClassifier())
     state.usage = UsageTracker()
+    print("Orchestrator with 24 agents ready")
     yield
     state.agent = None
+    state.orchestrator = None
     state.usage = None
     print("OneAgent OS API shutting down")
 
 app = FastAPI(
     title="OneAgent OS API",
-    description="AI Developer Agent - Build, Fix, Explain",
+    description="AI Developer Agent - Build, Fix, Explain - Powered by 24 AI Frameworks",
     version="1.0.0",
     lifespan=lifespan,
 )
@@ -84,6 +97,7 @@ else:
         "http://localhost:8000",
         "https://jnus.pages.dev",
         "https://oneagent-os.pages.dev",
+        "https://*.app.github.dev",
     ]
 
 app.add_middleware(
@@ -143,6 +157,7 @@ async def health_check():
         "uptime_seconds": round(uptime, 2),
         "services": {
             "agent": "ready" if state.agent else "unavailable",
+            "orchestrator": "ready" if state.orchestrator else "unavailable",
             "database": "ready" if state.usage else "unavailable",
         },
     }
@@ -187,36 +202,79 @@ async def chat(request: ChatRequest, fastapi_request: Request):
 
 @app.post("/run", response_model=RunResponse)
 async def run_task(request: ChatRequest, user_id: str = Depends(require_user)):
-    if not state.agent or not state.usage:
+    if not state.orchestrator or not state.usage:
         raise HTTPException(status_code=503, detail="Service not initialized")
+    
+    # Check usage limit
     allowed, remaining = state.usage.check_limit(user_id)
     if not allowed:
         raise HTTPException(status_code=429, detail="Daily usage limit reached. Remaining: " + str(remaining) + " runs")
+    
     start = time.time()
-    result = await state.agent.run_task(
-        prompt=request.message,
-        mode=request.mode,
-        repo_path=request.repo_path,
-    )
+    logs = []
+    output_parts = []
+    files = []
+    
+    try:
+        # Use Orchestrator with all 24 agents
+        async for chunk in state.orchestrator.process(
+            message=request.message,
+            session_id=str(uuid.uuid4()),
+            user_id=user_id,
+        ):
+            if chunk.type == "token":
+                output_parts.append(chunk.content)
+                logs.append(f"[{chunk.metadata.get('agent', 'system')}] {chunk.content[:100]}")
+            elif chunk.type == "status":
+                logs.append(f"[system] {chunk.content}")
+            elif chunk.type == "intent":
+                logs.append(f"[intent] {chunk.content}")
+            elif chunk.type == "agent":
+                logs.append(f"[agent] {chunk.content}")
+            elif chunk.type == "routing":
+                logs.append(f"[routing] {chunk.content}")
+            elif chunk.type == "error":
+                logs.append(f"[error] {chunk.content}")
+            elif chunk.type == "done":
+                logs.append(f"[done] {chunk.content}")
+        
+        success = True
+        error = None
+        output = "\n".join(output_parts) if output_parts else "Task completed"
+        
+    except Exception as e:
+        success = False
+        error = str(e)
+        output = ""
+        logs.append(f"[error] System error: {error}")
+    
     duration = time.time() - start
+    
+    # Log usage
     state.usage.log_usage(
         user_id=user_id, action="run_task",
         prompt=request.message, mode=request.mode,
-        result_summary=result["output"][:200] if result["output"] else "",
-        duration=duration, status="completed" if result["success"] else "failed",
-        error=result["error"],
+        result_summary=output[:200] if output else "",
+        duration=duration, status="completed" if success else "failed",
+        error=error,
     )
+    
+    # Save task
     task_id = state.usage.save_task(
         user_id=user_id, prompt=request.message, mode=request.mode,
-        status="completed" if result["success"] else "failed",
-        files=result["files"], logs=result["logs"],
-        duration=duration, error=result["error"],
+        status="completed" if success else "failed",
+        files=files, logs=logs,
+        duration=duration, error=error,
     )
+    
     return RunResponse(
-        task_id=task_id, status="completed" if result["success"] else "failed",
-        output=result["output"], files=result["files"],
-        logs=result["logs"], duration=round(duration, 2),
-        error=result["error"],
+        task_id=task_id,
+        status="completed" if success else "failed",
+        output=output,
+        files=files,
+        logs=logs,
+        duration=round(duration, 2),
+        error=error,
     )
 
 @app.get("/usage", response_model=UsageResponse)
