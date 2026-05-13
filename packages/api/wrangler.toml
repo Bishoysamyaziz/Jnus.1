@@ -1,10 +1,15 @@
-name = "oneagent-os-api"
+name = "oneagent-os"
 main = "main.py"
 compatibility_date = "2024-12-01"
 compatibility_flags = ["python_workers"]
 
 [vars]
 ENVIRONMENT = "production"
+DEEPSEEK_MODEL = "deepseek-chat"
+DEFAULT_MODEL = "deepseek-chat"
+
+[env.production]
+vars = { ENVIRONMENT = "production" }
 
 [[d1_databases]]
 binding = "DB"

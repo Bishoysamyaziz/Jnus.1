@@ -2,11 +2,8 @@
 
 import { useState, useRef, useEffect, useCallback } from "react";
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL ||
-                "http://localhost:8000";
-// ملاحظة: API_URL هو المصدر الوحيد — لا يوجد API_BASE مكرر
+const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
 
-// ── JNUS PALETTE ──────────────────────────────────────────────────
 const C = {
   ink:     '#09090F',
   ink2:    '#0D0D16',
@@ -25,67 +22,18 @@ const C = {
   red:     '#C0392B',
 };
 
-// ── AGENT FRAMEWORKS ─────────────────────────────────────────────
-const AGENTS = [
-  { id: "auto",          name: "Auto",          icon: "◉", color: C.gold,     desc: "اختيار تلقائي" },
-  { id: "crewai",        name: "CrewAI",        icon: "⚑", color: "#FF6B6B",  desc: "فرق متعددة الأدوار" },
-  { id: "autogen",       name: "AutoGen",       icon: "⚖", color: "#4ECDC4",  desc: "نقاش متعدد الوكلاء" },
-  { id: "metagpt",       name: "MetaGPT",       icon: "♜", color: "#45B7D1",  desc: "محاكاة شركة برمجيات" },
-  { id: "langchain",     name: "LangChain",     icon: "⟁", color: "#7B6EF6",  desc: "Chain of thought" },
-  { id: "aider",         name: "Aider",         icon: "⌬", color: C.green,    desc: "تحرير كود" },
-  { id: "openhands",     name: "OpenHands",     icon: "⌘", color: "#E17055",  desc: "بيئة تطوير كاملة" },
-  { id: "smolagents",    name: "smolagents",    icon: "⚡", color: "#FDCB6E",  desc: "وكلاء أدوات سريعة" },
-  { id: "huggingface",   name: "HuggingFace",   icon: "🤗", color: "#FFD43B",  desc: "مهام تعلم آلي" },
-  { id: "langgraph",     name: "LangGraph",     icon: "◈", color: "#6C5CE7",  desc: "سير عمل معقدة" },
-  { id: "haystack",      name: "Haystack",      icon: "◎", color: "#00B894",  desc: "RAG على المستندات" },
-  { id: "llamaindex",    name: "LlamaIndex",    icon: "🦙", color: "#E17055",  desc: "استعلام وثائق" },
-  { id: "camel",         name: "CAMEL",         icon: "🐫", color: "#FDCB6E",  desc: "تخصص عميق" },
-  { id: "agentverse",    name: "AgentVerse",    icon: "◉", color: "#A29BFE",  desc: "محاكاة سيناريوهات" },
-  { id: "taskweaver",    name: "TaskWeaver",    icon: "▦", color: "#55EFC4",  desc: "تحليل بيانات" },
-  { id: "babyagi",       name: "BabyAGI",       icon: "◈", color: "#FF7675",  desc: "تخطيط طويل المدى" },
-  { id: "swarm",         name: "Swarm",         icon: "⚙", color: "#74B9FF",  desc: "توجيه متخصص" },
-  { id: "semantic_kernel", name: "SemanticKernel", icon: "⊞", color: "#0984E3", desc: "تكامل مؤسسي" },
-  { id: "letta",         name: "Letta",         icon: "🧠", color: "#A29BFE",  desc: "ذاكرة طويلة المدى" },
-  { id: "mem0",          name: "Mem0",          icon: "💾", color: "#FD79A8",  desc: "شخصية عبر الجلسات" },
-  { id: "autogpt",       name: "AutoGPT",       icon: "🤖", color: "#E17055",  desc: "مهام ذاتية التوجيه" },
-  { id: "agentgpt",      name: "AgentGPT",      icon: "🎯", color: "#00CEC9",  desc: "تحليل أهداف" },
-  { id: "rasa",          name: "Rasa",          icon: "💬", color: "#6C5CE7",  desc: "محادثات منظمة" },
-  { id: "botpress",      name: "Botpress",      icon: "⚡", color: "#FDCB6E",  desc: "تدفقات بصرية" },
-  { id: "superagi",      name: "SuperAGI",      icon: "🚀", color: "#FF7675",  desc: "أتمتة ذاتية" },
+const MODES = [
+  { id: "build",   name: "Build",   icon: "🚀", desc: "Generate new project" },
+  { id: "fix",     name: "Fix",     icon: "🔧", desc: "Fix/refactor code" },
+  { id: "explain", name: "Explain", icon: "💡", desc: "Explain code" },
 ];
 
-const INTENTS = [
-  { type: "CODE",         label: "كود",       color: C.green,  icon: "⌨" },
-  { type: "RESEARCH",     label: "بحث",       color: "#3DD6C0", icon: "◎" },
-  { type: "CREATIVE",     label: "إبداعي",    color: "#F06292", icon: "✦" },
-  { type: "DATA",         label: "بيانات",    color: C.gold,   icon: "▦" },
-  { type: "PLANNING",     label: "تخطيط",     color: "#7B6EF6", icon: "◈" },
-  { type: "AUTOMATION",   label: "أتمتة",     color: "#F5A623", icon: "⚡" },
-];
-
-const SAMPLE_CONVOS = [
-  { id: 1, title: "بناء REST API للـ authentication", intent: "CODE",     time: "منذ ساعتين" },
-  { id: 2, title: "تحليل بيانات المبيعات Q1",          intent: "DATA",     time: "أمس" },
-  { id: 3, title: "خطة تسويق لمنتج SaaS",              intent: "PLANNING", time: "منذ يومين" },
-];
-
-// ── SSE STREAMING CLIENT ───────────────────────────────────────────
-// ✅ B4 Fix: يتعامل مع جميع أنواع الـ SSE chunks (token, intent, agent, status, error, done)
-// يدعم تنسيقين:
-//   1. OpenAI-compatible: data: {"choices":[{"delta":{"content":"..."}}]}
-//   2. Native Jnus:       data: {"type":"token","content":"...","metadata":{...}}
-async function* streamChat(message: string, sessionId: string, agentPreference?: string) {
-  const response = await fetch(`${API_URL}/v1/chat/completions`, {
+// ── SSE STREAMING ───────────────────────────────────────────
+async function* streamChat(message: string, mode: string) {
+  const response = await fetch(`${API_URL}/chat`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      model: "claude-s4",
-      messages: [{ role: "user", content: message }],
-      stream: true,
-      session_id: sessionId,
-      user_id: "anonymous",
-      agent_preference: agentPreference !== "auto" ? agentPreference : undefined,
-    }),
+    body: JSON.stringify({ message, mode }),
   });
 
   if (!response.ok) {
@@ -111,184 +59,59 @@ async function* streamChat(message: string, sessionId: string, agentPreference?:
 
         try {
           const parsed = JSON.parse(data);
-
-          // ✅ Format 1: OpenAI-compatible {choices: [{delta: {content}}]}
-          if (parsed.choices) {
-            const content = parsed.choices[0]?.delta?.content || "";
-            if (content) {
-              yield { type: "token", content };
-            }
-          }
-          // ✅ Format 2: Native Jnus {type, content, metadata}
-          else if (parsed.type && parsed.content) {
-            yield { type: parsed.type, content: parsed.content };
+          if (parsed.type && parsed.content) {
+            yield parsed;
           }
         } catch {
-          // Skip malformed JSON
+          // Skip malformed
         }
       }
     }
   }
 }
 
-// ── COMPONENTS ────────────────────────────────────────────────────
+// ── RUN TASK ───────────────────────────────────────────
+async function runTask(message: string, mode: string, token?: string) {
+  const headers: Record<string, string> = { "Content-Type": "application/json" };
+  if (token) headers["Authorization"] = `Bearer ${token}`;
 
-function Dot({ color, pulse }: { color: string; pulse?: boolean }) {
-  return (
-    <span style={{
-      display: "inline-block",
-      width: 7, height: 7,
-      borderRadius: "50%",
-      background: color,
-      boxShadow: pulse ? `0 0 8px ${color}` : "none",
-      animation: pulse ? "pulse 1.5s ease-in-out infinite" : "none",
-      flexShrink: 0,
-    }} />
-  );
+  const response = await fetch(`${API_URL}/run`, {
+    method: "POST",
+    headers,
+    body: JSON.stringify({ message, mode }),
+  });
+
+  if (!response.ok) {
+    const err = await response.json().catch(() => ({ detail: "Unknown error" }));
+    throw new Error(err.detail || `HTTP ${response.status}`);
+  }
+
+  return response.json();
 }
 
-function AgentBadge({ agent, active, onClick }: { agent: typeof AGENTS[0]; active: boolean; onClick: () => void }) {
-  return (
-    <button onClick={onClick} style={{
-      display: "flex", alignItems: "center", gap: 6,
-      padding: "5px 10px",
-      borderRadius: 8,
-      border: `1px solid ${active ? agent.color + "60" : C.line}`,
-      background: active ? agent.color + "12" : "transparent",
-      cursor: "pointer",
-      transition: "all 0.15s ease",
-    }}>
-      <span style={{ fontSize: 13, color: agent.color }}>{agent.icon}</span>
-      <span style={{ fontSize: 11, color: active ? agent.color : C.muted, fontFamily: "'DM Mono', monospace" }}>
-        {agent.name}
-      </span>
-    </button>
-  );
+// ── AUTH ───────────────────────────────────────────
+function getToken(): string | null {
+  if (typeof window !== "undefined") {
+    return localStorage.getItem("oneagent_token");
+  }
+  return null;
 }
 
-function IntentTag({ intent }: { intent: string }) {
-  const info = INTENTS.find(i => i.type === intent);
-  if (!info) return null;
-  return (
-    <span style={{
-      display: "inline-flex", alignItems: "center", gap: 4,
-      padding: "2px 8px",
-      borderRadius: 5,
-      background: info.color + "15",
-      border: `1px solid ${info.color}30`,
-      fontSize: 10,
-      color: info.color,
-      fontFamily: "'DM Mono', monospace",
-      letterSpacing: 0.5,
-    }}>
-      {info.icon} {info.label}
-    </span>
-  );
+function setToken(token: string) {
+  localStorage.setItem("oneagent_token", token);
 }
+
+// ── COMPONENTS ──────────────────────────────────────
 
 function TypingIndicator() {
   return (
     <div style={{ display: "flex", gap: 5, alignItems: "center", padding: "4px 0" }}>
       {[0, 1, 2].map(i => (
         <span key={i} style={{
-          width: 6, height: 6,
-          borderRadius: "50%",
-          background: C.gold,
-          opacity: 0.7,
-          animation: `bounce 1.2s ease-in-out ${i * 0.2}s infinite`,
+          width: 6, height: 6, borderRadius: "50%", background: C.gold,
+          opacity: 0.7, animation: `bounce 1.2s ease-in-out ${i * 0.2}s infinite`,
         }} />
       ))}
-    </div>
-  );
-}
-
-function MessageContent({ content, streaming }: { content: string; streaming?: boolean }) {
-  const lines = content.split("\n");
-  const rendered: React.ReactNode[] = [];
-  let inCode = false;
-  let codeLines: string[] = [];
-  let codeLang = "";
-
-  for (let i = 0; i < lines.length; i++) {
-    const line = lines[i];
-    if (line.startsWith("```")) {
-      if (!inCode) {
-        inCode = true;
-        codeLang = line.slice(3);
-        codeLines = [];
-      } else {
-        rendered.push(
-          <div key={`code-${i}`} style={{
-            margin: "10px 0",
-            borderRadius: 10,
-            overflow: "hidden",
-            border: `1px solid ${C.line}`,
-          }}>
-            {codeLang && (
-              <div style={{
-                padding: "6px 14px",
-                background: C.ink2,
-                borderBottom: `1px solid ${C.line2}`,
-                fontSize: 10,
-                color: C.stone2,
-                fontFamily: "'DM Mono', monospace",
-                display: "flex", justifyContent: "space-between",
-              }}>
-                <span>{codeLang}</span>
-                <span style={{ color: C.green, letterSpacing: 0.5 }}>● LIVE</span>
-              </div>
-            )}
-            <pre style={{
-              margin: 0, padding: "14px",
-              background: C.ink2,
-              fontSize: 12,
-              lineHeight: 1.7,
-              color: "#7DD3FC",
-              fontFamily: "'DM Mono', monospace",
-              overflowX: "auto",
-            }}>{codeLines.join("\n")}</pre>
-          </div>
-        );
-        inCode = false;
-        codeLines = [];
-        codeLang = "";
-      }
-    } else if (inCode) {
-      codeLines.push(line);
-    } else if (line.startsWith("**") && line.endsWith("**")) {
-      rendered.push(
-        <strong key={i} style={{ color: C.gold, display: "block", margin: "6px 0 2px" }}>
-          {line.slice(2, -2)}
-        </strong>
-      );
-    } else if (line.match(/^\d\./)) {
-      rendered.push(
-        <div key={i} style={{ display: "flex", gap: 8, margin: "3px 0", fontSize: 13, color: C.txt }}>
-          <span style={{ color: C.gold, fontFamily: "'DM Mono', monospace", minWidth: 16 }}>
-            {line[0]}
-          </span>
-          <span>{line.slice(2).replace(/\*\*(.*?)\*\*/g, "$1")}</span>
-        </div>
-      );
-    } else if (line === "") {
-      rendered.push(<div key={i} style={{ height: 6 }} />);
-    } else {
-      const parts = line.split(/\*\*(.*?)\*\*/g);
-      rendered.push(
-        <span key={i} style={{ fontSize: 13, lineHeight: 1.8, color: C.txt, display: "block" }}>
-          {parts.map((p, j) => j % 2 === 0
-            ? <span key={j}>{p}</span>
-            : <strong key={j} style={{ color: C.gold }}>{p}</strong>
-          )}
-        </span>
-      );
-    }
-  }
-
-  return (
-    <div>
-      {rendered}
-      {streaming && <TypingIndicator />}
     </div>
   );
 }
@@ -297,415 +120,185 @@ function Message({ msg }: { msg: any }) {
   const isUser = msg.role === "user";
   return (
     <div style={{
-      display: "flex",
+      display: "flex", gap: 12, marginBottom: 20,
       flexDirection: isUser ? "row-reverse" : "row",
-      gap: 12,
-      marginBottom: 24,
       animation: "fadeUp 0.3s ease",
     }}>
-      {/* Avatar */}
       <div style={{
-        width: 32, height: 32,
-        borderRadius: isUser ? 10 : 11,
-        background: isUser ? C.golddim : C.ink,
-        border: `1px solid ${isUser ? C.gold : C.line2}`,
+        width: 32, height: 32, borderRadius: 11,
+        background: isUser ? C.gold : C.ink,
         display: "flex", alignItems: "center", justifyContent: "center",
-        fontSize: 13,
+        fontSize: 13, color: isUser ? C.ink : C.gold,
+        fontFamily: "'Playfair Display', serif", fontWeight: 700,
         flexShrink: 0,
-        color: isUser ? C.gold : C.gold,
-        fontFamily: isUser ? "'Noto Kufi Arabic', sans-serif" : "'Playfair Display', serif",
-        fontWeight: 700,
       }}>
-        {isUser ? "أ" : "J"}
+        {isUser ? "U" : "J"}
       </div>
-
-      {/* Bubble */}
-      <div style={{ maxWidth: "78%", minWidth: 60 }}>
-        {!isUser && msg.intent && (
-          <div style={{ marginBottom: 6, display: "flex", alignItems: "center", gap: 6 }}>
-            <IntentTag intent={msg.intent} />
-            {msg.agent && (
-              <span style={{
-                fontSize: 10, color: C.muted,
-                fontFamily: "'DM Mono', monospace",
-              }}>via {msg.agent}</span>
-            )}
-            {msg.duration && (
-              <span style={{ fontSize: 10, color: C.dim, fontFamily: "'DM Mono', monospace" }}>
-                {msg.duration}
-              </span>
-            )}
-          </div>
-        )}
-        <div style={{
-          padding: isUser ? "10px 14px" : "12px 16px",
-          borderRadius: isUser ? "14px 4px 14px 14px" : "4px 14px 14px 14px",
-          background: isUser ? C.ink : "#fff",
-          border: `1px solid ${isUser ? C.line2 : C.line}`,
-          fontSize: 13,
-          lineHeight: 1.7,
-          color: isUser ? C.paper : C.txt,
-        }}>
-          {isUser
-            ? <span>{msg.content}</span>
-            : <MessageContent content={msg.content} streaming={msg.streaming} />
-          }
-        </div>
-        {!isUser && msg.cost && (
-          <div style={{ marginTop: 5, display: "flex", gap: 10 }}>
-            <span style={{ fontSize: 10, color: C.dim, fontFamily: "'DM Mono', monospace" }}>
-              ${msg.cost} · {msg.tokens} tokens
-            </span>
-          </div>
-        )}
-      </div>
-    </div>
-  );
-}
-
-function Sidebar({ conversations, activeId, onSelect, onNew }: {
-  conversations: typeof SAMPLE_CONVOS;
-  activeId: number;
-  onSelect: (id: number) => void;
-  onNew: () => void;
-}) {
-  return (
-    <div style={{
-      width: 240,
-      background: C.ink2,
-      borderLeft: `1px solid ${C.line2}`,
-      display: "flex", flexDirection: "column",
-      flexShrink: 0,
-    }}>
-      {/* Logo */}
       <div style={{
-        padding: "18px 16px 14px",
-        borderBottom: `1px solid ${C.line2}`,
+        padding: "12px 16px",
+        borderRadius: isUser ? "14px 4px 14px 14px" : "4px 14px 14px 14px",
+        background: isUser ? C.ink : "#fff",
+        border: `1px solid ${isUser ? C.line2 : C.line}`,
+        color: isUser ? C.paper : C.txt,
+        fontSize: 13, lineHeight: 1.8,
+        maxWidth: "80%",
+        whiteSpace: "pre-wrap",
+        fontFamily: "'Noto Kufi Arabic', sans-serif",
       }}>
-        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-          <div style={{
-            fontFamily: "'Playfair Display', serif", fontSize: 16, fontWeight: 900, color: C.paper,
-          }}>
-            J<em style={{ color: C.gold, fontStyle: 'normal' }}>nus</em>
-          </div>
-        </div>
-      </div>
-
-      {/* New Chat */}
-      <div style={{ padding: "10px 10px 6px" }}>
-        <button onClick={onNew} style={{
-          width: "100%",
-          padding: "8px 12px",
-          borderRadius: 9,
-          border: `1px dashed #2E2C22`,
-          background: "transparent",
-          color: C.stone2,
-          fontSize: 12,
-          cursor: "pointer",
-          display: "flex", alignItems: "center", gap: 6,
-          transition: "all 0.15s",
-        }}
-          onMouseEnter={e => { e.currentTarget.style.borderColor = C.gold; e.currentTarget.style.color = C.gold; }}
-          onMouseLeave={e => { e.currentTarget.style.borderColor = "#2E2C22"; e.currentTarget.style.color = C.stone2; }}
-        >
-          <span style={{ fontSize: 16, lineHeight: 1 }}>+</span>
-          محادثة جديدة
-        </button>
-      </div>
-
-      {/* History */}
-      <div style={{ flex: 1, overflowY: "auto", padding: "4px 10px" }}>
-        <div style={{ fontSize: 9, color: "#3A3828", letterSpacing: 1.5, padding: "8px 6px 4px", fontFamily: "'DM Mono', monospace" }}>
-          RECENT
-        </div>
-        {conversations.map(c => (
-          <button key={c.id} onClick={() => onSelect(c.id)} style={{
-            width: "100%", textAlign: "right",
-            padding: "8px 8px",
-            borderRadius: 8,
-            border: "1px solid transparent",
-            background: activeId === c.id ? "#141410" : "transparent",
-            cursor: "pointer",
-            marginBottom: 2,
-            transition: "all 0.12s",
-          }}
-            onMouseEnter={e => { if (activeId !== c.id) e.currentTarget.style.background = "#141410"; }}
-            onMouseLeave={e => { if (activeId !== c.id) e.currentTarget.style.background = "transparent"; }}
-          >
-            <div style={{ display: "flex", alignItems: "flex-start", gap: 6 }}>
-              <IntentTag intent={c.intent} />
-            </div>
-            <div style={{ fontSize: 11, color: activeId === c.id ? C.stone2 : C.stone2, marginTop: 4, lineHeight: 1.4, textAlign: "right" }}>
-              {c.title}
-            </div>
-            <div style={{ fontSize: 9, color: "#3A3828", marginTop: 3, fontFamily: "'DM Mono', monospace" }}>
-              {c.time}
-            </div>
-          </button>
-        ))}
-      </div>
-
-      {/* Footer stats */}
-      <div style={{
-        padding: "10px 14px",
-        borderTop: `1px solid ${C.line2}`,
-        display: "flex", flexDirection: "column", gap: 5,
-      }}>
-        <div style={{ display: "flex", justifyContent: "space-between" }}>
-          <span style={{ fontSize: 9, color: "#3A3828", fontFamily: "'DM Mono', monospace" }}>تكلفة اليوم</span>
-          <span style={{ fontSize: 9, color: C.green, fontFamily: "'DM Mono', monospace" }}>$0.003</span>
-        </div>
-        <div style={{ display: "flex", justifyContent: "space-between" }}>
-          <span style={{ fontSize: 9, color: "#3A3828", fontFamily: "'DM Mono', monospace" }}>النموذج</span>
-          <span style={{ fontSize: 9, color: C.gold, fontFamily: "'DM Mono', monospace" }}>تلقائي</span>
-        </div>
+        {msg.content}
+        {msg.streaming && <TypingIndicator />}
       </div>
     </div>
   );
 }
 
-function AgentPanel({ activeAgent, onSelect, thinking, currentAgent }: {
-  activeAgent: string;
-  onSelect: (id: string) => void;
-  thinking: boolean;
-  currentAgent: string;
-}) {
-  return (
-    <div style={{
-      width: 200,
-      background: C.ink2,
-      borderLeft: `1px solid ${C.line2}`,
-      padding: "14px 12px",
-      display: "flex", flexDirection: "column", gap: 10,
-    }}>
-      <div style={{ fontSize: 9, color: "#3A3828", letterSpacing: 1.5, fontFamily: "'DM Mono', monospace" }}>
-        AGENT SELECTOR
-      </div>
+// ── MAIN COMPONENT ──────────────────────────────────
 
-      {AGENTS.map(a => (
-        <button key={a.id} onClick={() => onSelect(a.id)} style={{
-          padding: "8px 10px",
-          borderRadius: 9,
-          border: `1px solid ${activeAgent === a.id ? a.color + "50" : C.line2}`,
-          background: activeAgent === a.id ? a.color + "10" : "transparent",
-          cursor: "pointer",
-          textAlign: "right",
-          transition: "all 0.15s",
-        }}>
-          <div style={{ display: "flex", alignItems: "center", gap: 6, justifyContent: "flex-end" }}>
-            {thinking && currentAgent === a.id && <Dot color={a.color} pulse />}
-            <span style={{ fontSize: 11, color: activeAgent === a.id ? a.color : C.stone2 }}>
-              {a.name}
-            </span>
-            <span style={{ fontSize: 14, color: a.color }}>{a.icon}</span>
-          </div>
-          <div style={{ fontSize: 9, color: "#3A3828", marginTop: 2, fontFamily: "'DM Mono', monospace" }}>
-            {a.desc}
-          </div>
-        </button>
-      ))}
-
-      {thinking && (
-        <div style={{
-          marginTop: 8,
-          padding: "10px",
-          borderRadius: 9,
-          background: C.golddim,
-          border: `1px solid ${C.gold}30`,
-        }}>
-          <div style={{ fontSize: 9, color: C.gold, fontFamily: "'DM Mono', monospace", marginBottom: 6 }}>
-            ACTIVE
-          </div>
-          <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
-            {["Intent ✅", "Graph ✅", "Execute 🔄"].map((s, i) => (
-              <div key={i} style={{ fontSize: 10, color: C.stone2, fontFamily: "'DM Mono', monospace" }}>
-                {s}
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
-    </div>
-  );
-}
-
-// ── MAIN APP ──────────────────────────────────────────────────────
 export default function OneAgentOS() {
-  const [messages, setMessages] = useState<any[]>([
-    {
-      id: 1,
-      role: "assistant",
-      content: "**مرحباً بك في Jnus.**\n\nاكتب هدفك وسأتولى الباقي — من الفهم والتخطيط حتى التنفيذ الكامل.",
-      intent: null,
-    }
-  ]);
   const [input, setInput] = useState("");
+  const [messages, setMessages] = useState<any[]>([
+    { id: 1, role: "assistant", content: "Welcome to OneAgent OS! Type a prompt to build, fix, or explain code.", streaming: false },
+  ]);
   const [thinking, setThinking] = useState(false);
-  const [activeAgent, setActiveAgent] = useState("auto");
-  const [activeConvo, setActiveConvo] = useState(1);
-  const [conversations, setConversations] = useState(SAMPLE_CONVOS);
-  const [apiOnline, setApiOnline] = useState<boolean | null>(null); // null = checking, true = online, false = offline
-  const [stats, setStats] = useState({
-    frameworks: 24,
-    modules: 62,
-    tests: 11,
-    memory: 8,
-    loading: true,
-  });
+  const [mode, setMode] = useState("build");
+  const [token, setTokenState] = useState<string | null>(null);
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [showAuth, setShowAuth] = useState(false);
+  const [logs, setLogs] = useState<string[]>([]);
+  const [result, setResult] = useState<any>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
 
   useEffect(() => {
+    const t = getToken();
+    if (t) setTokenState(t);
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
 
-  useEffect(() => {
-    const fetchStats = async () => {
-      try {
-        const [agentsRes, metricsRes] = await Promise.allSettled([
-          fetch(`${API_URL}/v1/agents`),
-          fetch(`${API_URL}/metrics`),
-        ]);
+  const sendMessage = async () => {
+    if (!input.trim() || thinking) return;
 
-        const agents  = agentsRes.status  === "fulfilled" ? await agentsRes.value.json()  : null;
-        const metrics = metricsRes.status === "fulfilled" ? await metricsRes.value.json() : null;
-
-        // ✅ تحديث حالة الاتصال بناءً على نجاح الـ API
-        const online = agents !== null || metrics !== null;
-        setApiOnline(online);
-
-        setStats(prev => ({
-          ...prev,
-          frameworks: agents?.total              ?? prev.frameworks,
-          memory:     metrics?.active_sessions   ?? prev.memory,
-          loading: false,
-        }));
-      } catch {
-        setApiOnline(false);
-        setStats(prev => ({ ...prev, loading: false }));
-      }
-    };
-    fetchStats();
-    const interval = setInterval(fetchStats, 30_000);
-    return () => clearInterval(interval);
-  }, []);
-
-  const sendMessage = useCallback(async () => {
-    const text = input.trim();
-    if (!text || thinking) return;
-
-    const userMsg = { id: Date.now(), role: "user", content: text };
-    setMessages((prev: any[]) => [...prev, userMsg]);
-    setInput("");
-    setThinking(true);
-
-    // Create assistant message placeholder
+    const userMsg = { id: Date.now(), role: "user", content: input, streaming: false };
     const assistantId = Date.now() + 1;
-    let sessionId = `session_${activeConvo}`;
+    const assistantMsg = { id: assistantId, role: "assistant", content: "", streaming: true };
 
-    setMessages((prev: any[]) => [...prev, {
-      id: assistantId,
-      role: "assistant",
-      content: "",
-      streaming: true,
-      intent: null,
-      agent: null,
-      duration: null,
-      cost: null,
-      tokens: null,
-    }]);
+    setMessages((prev: any[]) => [...prev, userMsg, assistantMsg]);
+    setThinking(true);
+    setLogs([]);
+    setResult(null);
+
+    const prompt = input;
+    setInput("");
 
     try {
-      // Stream from real API
       let fullContent = "";
-
-      for await (const chunk of streamChat(text, sessionId, activeAgent)) {
-        const { type, content } = chunk;
-
-        switch (type) {
-          case "token":
-            fullContent += content;
+      for await (const chunk of streamChat(prompt, mode)) {
+        if (chunk.type === "token") {
+          fullContent += chunk.content;
+          setMessages((prev: any[]) => prev.map((m: any) =>
+            m.id === assistantId ? { ...m, content: fullContent, streaming: true } : m
+          ));
+        } else if (chunk.type === "status") {
+          setMessages((prev: any[]) => prev.map((m: any) =>
+            m.id === assistantId ? { ...m, content: fullContent + "\n⏳ " + chunk.content, streaming: true } : m
+          ));
+        } else if (chunk.type === "error") {
+          setMessages((prev: any[]) => prev.map((m: any) =>
+            m.id === assistantId ? { ...m, content: fullContent + "\n❌ " + chunk.content, streaming: false } : m
+          ));
+        } else if (chunk.type === "done") {
+          setMessages((prev: any[]) => prev.map((m: any) =>
+            m.id === assistantId ? { ...m, content: fullContent + "\n\n✅ " + chunk.content, streaming: false } : m
+          ));
+        } else if (chunk.type === "files") {
+          const files = Array.isArray(chunk.content) ? chunk.content : [];
+          if (files.length > 0) {
             setMessages((prev: any[]) => prev.map((m: any) =>
-              m.id === assistantId ? { ...m, content: fullContent } : m
+              m.id === assistantId ? { ...m, content: fullContent + "\n\n📁 Files: " + files.join(", "), streaming: false } : m
             ));
-            break;
-
-          case "intent":
-            fullContent += `\n\n🔍 **Intent:** ${content}\n`;
-            setMessages((prev: any[]) => prev.map((m: any) =>
-              m.id === assistantId ? { ...m, content: fullContent } : m
-            ));
-            break;
-
-          case "agent":
-            fullContent += `\n\n🤖 **Agent:** ${content}\n`;
-            setMessages((prev: any[]) => prev.map((m: any) =>
-              m.id === assistantId ? { ...m, content: fullContent } : m
-            ));
-            break;
-
-          case "status":
-            // Show status updates inline
-            fullContent += `\n⏳ ${content}\n`;
-            setMessages((prev: any[]) => prev.map((m: any) =>
-              m.id === assistantId ? { ...m, content: fullContent } : m
-            ));
-            break;
-
-          case "routing":
-            fullContent += `\n⚡ ${content}\n`;
-            setMessages((prev: any[]) => prev.map((m: any) =>
-              m.id === assistantId ? { ...m, content: fullContent } : m
-            ));
-            break;
-
-          case "done":
-            fullContent += `\n\n✅ ${content}`;
-            setMessages((prev: any[]) => prev.map((m: any) =>
-              m.id === assistantId ? { ...m, content: fullContent, streaming: false } : m
-            ));
-            break;
-
-          case "error":
-            fullContent += `\n\n⚠️ ${content}`;
-            setMessages((prev: any[]) => prev.map((m: any) =>
-              m.id === assistantId ? { ...m, content: fullContent } : m
-            ));
-            break;
+          }
         }
       }
-
     } catch (err: any) {
-      // Fallback: if API is not available, show a friendly message
       setMessages((prev: any[]) => prev.map((m: any) =>
-        m.id === assistantId ? {
-          ...m,
-          content: `**مرحباً بك في Jnus!**\n\nهذا وضع التجربة — لتشغيل النظام الكامل:\n\`\`\`bash\ndocker compose up\n\`\`\`\n\nبعدها أعد فتح هذه الصفحة وستعمل جميع الميزات.`,
-          streaming: false,
-        } : m
+        m.id === assistantId ? { ...m, content: "⚠️ Error: " + (err.message || "Connection failed"), streaming: false } : m
       ));
     }
 
     setThinking(false);
-  }, [input, thinking, activeAgent, activeConvo]);
+  };
 
+  const handleRun = async () => {
+    if (!input.trim() || thinking) return;
+
+    setLogs(["🚀 Starting task..."]);
+    setResult(null);
+
+    try {
+      const res = await runTask(input, mode, token || undefined);
+      setLogs(res.logs || []);
+      setResult(res);
+      setMessages((prev: any[]) => [...prev, {
+        id: Date.now(),
+        role: "assistant",
+        content: `✅ Task completed!\n\n📁 Files: ${(res.files || []).join(", ") || "None"}\n⏱️ Duration: ${res.duration}s\n📋 Task ID: ${res.task_id}`,
+        streaming: false,
+      }]);
+    } catch (err: any) {
+      setLogs([`❌ Error: ${err.message}`]);
+      setMessages((prev: any[]) => [...prev, {
+        id: Date.now(),
+        role: "assistant",
+        content: "❌ Error: " + err.message + "\n\n💡 Tip: You need to login first. Click 'Login' button.",
+        streaming: false,
+      }]);
+    }
+  };
+
+  const handleLogin = async () => {
+    try {
+      const res = await fetch(`${API_URL}/auth/login?email=${encodeURIComponent(email)}&password=${encodeURIComponent(password)}`, {
+        method: "POST",
+      });
+      const data = await res.json();
+      setToken(data.access_token);
+      setTokenState(data.access_token);
+      setShowAuth(false);
+      setMessages((prev: any[]) => [...prev, {
+        id: Date.now(), role: "assistant",
+        content: "✅ Logged in successfully! You can now run tasks.",
+        streaming: false,
+      }]);
+    } catch (err: any) {
+      alert("Login failed: " + err.message);
+    }
+  };
+
+  const handleRegister = async () => {
+    try {
+      const res = await fetch(`${API_URL}/auth/register?email=${encodeURIComponent(email)}&password=${encodeURIComponent(password)}`, {
+        method: "POST",
+      });
+      const data = await res.json();
+      setToken(data.access_token);
+      setTokenState(data.access_token);
+      setShowAuth(false);
+      setMessages((prev: any[]) => [...prev, {
+        id: Date.now(), role: "assistant",
+        content: "✅ Registered and logged in! You can now run tasks.",
+        streaming: false,
+      }]);
+    } catch (err: any) {
+      alert("Registration failed: " + err.message);
+    }
+  };
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === "Enter" && !e.shiftKey) {
       e.preventDefault();
       sendMessage();
     }
-  };
-
-  const newConversation = () => {
-    const id = Date.now();
-    setConversations((prev: any[]) => [{ id, title: "محادثة جديدة", intent: "CODE", time: "الآن" }, ...prev]);
-    setActiveConvo(id);
-    setMessages([{
-      id: 1, role: "assistant",
-      content: "محادثة جديدة. كيف يمكنني مساعدتك؟",
-      intent: null,
-    }]);
   };
 
   return (
@@ -717,204 +310,173 @@ export default function OneAgentOS() {
         ::-webkit-scrollbar { width: 4px; }
         ::-webkit-scrollbar-track { background: transparent; }
         ::-webkit-scrollbar-thumb { background: ${C.line}; border-radius: 2px; }
-        @keyframes fadeUp {
-          from { opacity: 0; transform: translateY(8px); }
-          to   { opacity: 1; transform: translateY(0); }
-        }
-        @keyframes pulse {
-          0%, 100% { opacity: 1; transform: scale(1); }
-          50%       { opacity: 0.5; transform: scale(1.3); }
-        }
-        @keyframes bounce {
-          0%, 80%, 100% { transform: translateY(0); }
-          40%            { transform: translateY(-5px); }
-        }
-        button { outline: none; }
+        @keyframes fadeUp { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
+        @keyframes bounce { 0%, 80%, 100% { transform: translateY(0); } 40% { transform: translateY(-5px); } }
         textarea { outline: none; resize: none; }
       `}</style>
 
       <div style={{
-        display: "flex",
-        height: "100vh",
+        display: "flex", height: "100vh",
         fontFamily: "'Noto Kufi Arabic', sans-serif",
-        background: C.paper,
-        color: C.txt,
-        direction: "rtl",
-        overflow: "hidden",
+        background: C.paper, color: C.txt,
+        direction: "rtl", overflow: "hidden",
       }}>
-        {/* Sidebar */}
-        <Sidebar
-          conversations={conversations}
-          activeId={activeConvo}
-          onSelect={setActiveConvo}
-          onNew={newConversation}
-        />
-
         {/* Main */}
         <div style={{ flex: 1, display: "flex", flexDirection: "column", overflow: "hidden" }}>
-          
           {/* Header */}
           <div style={{
-            padding: "12px 20px",
-            borderBottom: `1px solid ${C.line}`,
+            padding: "12px 20px", borderBottom: `1px solid ${C.line}`,
             display: "flex", alignItems: "center", justifyContent: "space-between",
-            background: "rgba(245,243,239,.95)",
-            backdropFilter: "blur(10px)",
+            background: "rgba(245,243,239,.95)", backdropFilter: "blur(10px)",
           }}>
             <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-              <Dot color={C.green} pulse />
+              <span style={{
+                width: 7, height: 7, borderRadius: "50%", background: C.green,
+                boxShadow: `0 0 8px ${C.green}`, display: "inline-block",
+              }} />
               <span style={{ fontSize: 11, color: C.muted, fontFamily: "'DM Mono', monospace" }}>
-                جاهز للمساعدة
+                OneAgent OS
               </span>
             </div>
-
-            <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
-              <span style={{
-                fontSize: 9,
-                color: apiOnline === true ? C.green : apiOnline === false ? C.red : C.stone,
-                padding: "2px 7px",
-                background: apiOnline === true ? C.green + "10" : apiOnline === false ? C.red + "10" : "transparent",
-                border: `1px solid ${apiOnline === true ? C.green + "25" : apiOnline === false ? C.red + "25" : C.line}`,
-                borderRadius: 4,
-                fontFamily: "'DM Mono', monospace",
-              }}>
-                {apiOnline === true ? "متصل ✓" : apiOnline === false ? "غير متصل ✗" : "جاري الفحص..."}
-              </span>
+            <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+              {!token ? (
+                <button onClick={() => setShowAuth(!showAuth)} style={{
+                  padding: "5px 12px", background: C.ink, color: C.paper,
+                  border: "none", borderRadius: 6, fontSize: 10, cursor: "pointer",
+                  fontFamily: "'DM Mono', monospace",
+                }}>Login</button>
+              ) : (
+                <span style={{ fontSize: 9, color: C.green, fontFamily: "'DM Mono', monospace" }}>
+                  ✓ Authenticated
+                </span>
+              )}
               <a href="/" style={{
-                padding: "5px 12px",
-                background: "transparent",
-                border: `1px solid ${C.line}`,
-                borderRadius: 6,
-                fontSize: 10,
-                color: C.muted,
-                cursor: "pointer",
+                padding: "5px 12px", border: `1px solid ${C.line}`, borderRadius: 6,
+                fontSize: 10, color: C.muted, cursor: "pointer", textDecoration: "none",
                 fontFamily: "'DM Mono', monospace",
-                textDecoration: "none",
-                transition: "all 0.15s",
-              }}
-                onMouseEnter={e => { e.currentTarget.style.borderColor = C.gold; e.currentTarget.style.color = C.txt; }}
-                onMouseLeave={e => { e.currentTarget.style.borderColor = C.line; e.currentTarget.style.color = C.muted; }}
-              >
-                ← رجوع
-              </a>
+              }}>← Home</a>
             </div>
           </div>
 
-          {/* Messages */}
-          <div style={{
-            flex: 1,
-            overflowY: "auto",
-            padding: "24px 32px",
-          }}>
-            {messages.map((msg: any) => <Message key={msg.id} msg={msg} />)}
-            {thinking && (
-              <div style={{ display: "flex", gap: 12, marginBottom: 24 }}>
-                <div style={{
-                  width: 32, height: 32, borderRadius: 11,
-                  background: C.ink, border: `1px solid ${C.line2}`,
-                  display: "flex", alignItems: "center", justifyContent: "center",
-                  fontSize: 13, color: C.gold, fontFamily: "'Playfair Display', serif", fontWeight: 700,
-                }}>J</div>
-                <div style={{
-                  padding: "12px 16px",
-                  borderRadius: "4px 14px 14px 14px",
-                  background: "#fff", border: `1px solid ${C.line}`,
-                }}>
-                  <TypingIndicator />
+          {/* Auth Modal */}
+          {showAuth && (
+            <div style={{
+              position: "fixed", inset: 0, background: "rgba(0,0,0,0.5)",
+              display: "flex", alignItems: "center", justifyContent: "center", zIndex: 1000,
+            }}>
+              <div style={{
+                background: C.paper, padding: 32, borderRadius: 16,
+                border: `1px solid ${C.line}`, width: 360,
+              }}>
+                <h3 style={{ marginBottom: 20, fontFamily: "'Playfair Display', serif" }}>Login / Register</h3>
+                <input value={email} onChange={e => setEmail(e.target.value)} placeholder="Email"
+                  style={{ width: "100%", padding: 10, marginBottom: 10, borderRadius: 8, border: `1px solid ${C.line}`, fontSize: 13 }} />
+                <input value={password} onChange={e => setPassword(e.target.value)} type="password" placeholder="Password"
+                  style={{ width: "100%", padding: 10, marginBottom: 16, borderRadius: 8, border: `1px solid ${C.line}`, fontSize: 13 }} />
+                <div style={{ display: "flex", gap: 8 }}>
+                  <button onClick={handleLogin} style={{
+                    flex: 1, padding: 10, background: C.ink, color: C.paper,
+                    border: "none", borderRadius: 8, cursor: "pointer", fontSize: 12,
+                  }}>Login</button>
+                  <button onClick={handleRegister} style={{
+                    flex: 1, padding: 10, background: C.gold, color: C.ink,
+                    border: "none", borderRadius: 8, cursor: "pointer", fontSize: 12,
+                  }}>Register</button>
                 </div>
+                <button onClick={() => setShowAuth(false)} style={{
+                  marginTop: 12, padding: "6px 16px", background: "transparent",
+                  border: `1px solid ${C.line}`, borderRadius: 6, cursor: "pointer",
+                  fontSize: 10, width: "100%",
+                }}>Close</button>
               </div>
-            )}
+            </div>
+          )}
+
+          {/* Messages */}
+          <div style={{ flex: 1, overflowY: "auto", padding: "24px 32px" }}>
+            {messages.map((msg: any) => <Message key={msg.id} msg={msg} />)}
             <div ref={messagesEndRef} />
           </div>
 
+          {/* Logs Panel */}
+          {logs.length > 0 && (
+            <div style={{
+              maxHeight: 150, overflowY: "auto", padding: "8px 20px",
+              background: C.ink, color: C.green, fontFamily: "'DM Mono', monospace",
+              fontSize: 10, lineHeight: 1.8, borderTop: `1px solid ${C.line2}`,
+            }}>
+              {logs.map((log, i) => <div key={i}>{log}</div>)}
+            </div>
+          )}
+
+          {/* Result Card */}
+          {result && (
+            <div style={{
+              padding: "12px 20px", background: C.golddim,
+              borderTop: `1px solid ${C.gold}`, fontSize: 11, color: C.txt,
+            }}>
+              ✅ Task: {result.task_id} | Status: {result.status} | Duration: {result.duration}s
+              {result.files?.length > 0 && <span> | Files: {result.files.length}</span>}
+            </div>
+          )}
+
           {/* Input */}
-          <div style={{
-            padding: "14px 20px 18px",
-            borderTop: `1px solid ${C.line}`,
-            background: "rgba(245,243,239,.97)",
-          }}>
-            {/* Agent pills */}
+          <div style={{ padding: "14px 20px 18px", borderTop: `1px solid ${C.line}`, background: "rgba(245,243,239,.97)" }}>
+            {/* Mode pills */}
             <div style={{ display: "flex", gap: 6, marginBottom: 10, flexWrap: "wrap" }}>
-              {AGENTS.map(a => (
-                <AgentBadge key={a.id} agent={a} active={activeAgent === a.id} onClick={() => setActiveAgent(a.id)} />
+              {MODES.map(m => (
+                <button key={m.id} onClick={() => setMode(m.id)} style={{
+                  padding: "5px 10px", borderRadius: 8,
+                  border: `1px solid ${mode === m.id ? C.gold + "60" : C.line}`,
+                  background: mode === m.id ? C.golddim : "transparent",
+                  cursor: "pointer", fontSize: 11, color: mode === m.id ? C.gold : C.muted,
+                  fontFamily: "'DM Mono', monospace",
+                }}>
+                  {m.icon} {m.name}
+                </button>
               ))}
+              <button onClick={handleRun} disabled={!input.trim() || thinking} style={{
+                padding: "5px 14px", borderRadius: 8,
+                background: input.trim() && !thinking ? C.green : C.line,
+                border: "none", color: input.trim() && !thinking ? "#fff" : C.dim,
+                cursor: input.trim() && !thinking ? "pointer" : "not-allowed",
+                fontSize: 11, fontFamily: "'DM Mono', monospace", marginRight: "auto",
+              }}>
+                ▶ Run & Deploy
+              </button>
             </div>
 
             {/* Input box */}
             <div style={{
               display: "flex", gap: 10, alignItems: "flex-end",
-              padding: "10px 14px",
-              borderRadius: 16,
+              padding: "10px 14px", borderRadius: 16,
               border: `1.5px solid ${input ? C.gold : C.line}`,
-              background: "#fff",
-              transition: "border-color 0.2s",
-              boxShadow: input ? `0 2px 20px rgba(201,168,76,.15)` : "0 2px 12px rgba(0,0,0,.05)",
+              background: "#fff", transition: "border-color 0.2s",
             }}>
               <textarea
                 ref={inputRef}
                 value={input}
                 onChange={e => setInput(e.target.value)}
                 onKeyDown={handleKeyDown}
-                placeholder="اكتب هدفك هنا... (Enter للإرسال)"
+                placeholder="Type your prompt here... (Enter to send)"
                 rows={1}
                 style={{
-                  flex: 1,
-                  background: "transparent",
-                  border: "none",
-                  color: C.txt,
-                  fontSize: 13,
-                  lineHeight: 1.6,
+                  flex: 1, background: "transparent", border: "none",
+                  color: C.txt, fontSize: 13, lineHeight: 1.6,
                   fontFamily: "'Noto Kufi Arabic', sans-serif",
-                  maxHeight: 120,
-                  overflowY: "auto",
-                }}
-                onInput={e => {
-                  const target = e.currentTarget;
-                  target.style.height = "auto";
-                  target.style.height = Math.min(target.scrollHeight, 120) + "px";
+                  maxHeight: 120, overflowY: "auto",
                 }}
               />
-              <button
-                onClick={sendMessage}
-                disabled={!input.trim() || thinking}
-                style={{
-                  width: 36, height: 36,
-                  borderRadius: 10,
-                  border: "none",
-                  background: input.trim() && !thinking ? C.ink : C.line,
-                  color: input.trim() && !thinking ? C.gold : C.dim,
-                  cursor: input.trim() && !thinking ? "pointer" : "not-allowed",
-                  fontSize: 16,
-                  display: "flex", alignItems: "center", justifyContent: "center",
-                  flexShrink: 0,
-                  transition: "all 0.2s",
-                }}
-              >
-                ↑
-              </button>
-            </div>
-
-            <div style={{
-              marginTop: 7,
-              display: "flex", justifyContent: "space-between", alignItems: "center",
-            }}>
-              <span style={{ fontSize: 9, color: C.dim, fontFamily: "'DM Mono', monospace" }}>
-                Shift+Enter للسطر الجديد
-              </span>
-              <span style={{ fontSize: 9, color: C.dim, fontFamily: "'DM Mono', monospace" }}>
-                متوسط التكلفة أقل من $0.01
-              </span>
+              <button onClick={sendMessage} disabled={!input.trim() || thinking} style={{
+                width: 36, height: 36, borderRadius: 10, border: "none",
+                background: input.trim() && !thinking ? C.ink : C.line,
+                color: input.trim() && !thinking ? C.gold : C.dim,
+                cursor: input.trim() && !thinking ? "pointer" : "not-allowed",
+                fontSize: 16, display: "flex", alignItems: "center", justifyContent: "center",
+              }}>↑</button>
             </div>
           </div>
         </div>
-
-        {/* Agent Panel */}
-        <AgentPanel
-          activeAgent={activeAgent}
-          onSelect={setActiveAgent}
-          thinking={thinking}
-          currentAgent={activeAgent}
-        />
       </div>
     </>
   );

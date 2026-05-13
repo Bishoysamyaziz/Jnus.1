@@ -15,47 +15,45 @@ from typing import Any
 def _get_tiers() -> list[dict]:
     """Build LLM tiers lazily — reads os.environ at call time, not import time.
     هذا يمنع Race Condition حيث أن .env قد لا يكون محمّلاً بعد عند import.
+    
+    Tier ordering (complexity-based routing):
+      0.00–0.35 → Ollama (free, local)
+      0.35–0.75 → DeepSeek (cheap, primary cloud)
+      0.75–0.90 → WindsurfAPI (near-free gateway)
+      0.90–1.00 → Claude (paid fallback only)
     """
     return [
         {
-            "name": "deepseek",
-            "base_url": os.getenv("DEEPSEEK_BASE_URL", "https://api.deepseek.com/v1"),
-            "api_key": os.getenv("DEEPSEEK_API_KEY", ""),
-            "models": [os.getenv("DEEPSEEK_MODEL", "deepseek-chat"), "deepseek-coder"],
-            "cost_per_1k": 0.00014,
-            "max_complexity": 0.9,
-        },
-        {
             "name": "ollama",
             "base_url": os.getenv("OLLAMA_URL", "http://ollama:11434/v1"),
-            "api_key": "",
-            "models": [os.getenv("OLLAMA_MODEL", "llama3.2"), "mistral"],
+            "api_key": "ollama",
+            "models": ["llama3.2", "mistral"],
             "cost_per_1k": 0.0,
-            "max_complexity": 0.4,
+            "max_complexity": 0.35,
+        },
+        {
+            "name": "deepseek",           # ← الأساسي
+            "base_url": os.getenv("DEEPSEEK_BASE_URL", "https://api.deepseek.com/v1"),
+            "api_key": os.getenv("DEEPSEEK_API_KEY", ""),
+            "models": ["deepseek-chat", "deepseek-coder"],
+            "cost_per_1k": 0.0002,        # أرخص من Claude بكتير
+            "max_complexity": 0.75,
         },
         {
             "name": "windsurf",
-            "base_url": os.getenv("WINDSURF_API_URL", "http://windsurf-api:3003/v1"),
+            "base_url": os.getenv("WINDSURF_API_URL", "http://windsurf-api:3003") + "/v1",
             "api_key": os.getenv("WINDSURF_API_KEY", ""),
-            "models": ["claude-sonnet-4-6", "deepseek-v3", "gemini-2.5-pro"],
+            "models": ["claude-sonnet-4-6", "deepseek-v3"],
             "cost_per_1k": 0.0005,
-            "max_complexity": 0.85,
+            "max_complexity": 0.90,
         },
         {
             "name": "claude_real",
             "base_url": "https://api.anthropic.com",
             "api_key": os.getenv("ANTHROPIC_API_KEY", ""),
-            "models": ["claude-opus-4-6", "claude-sonnet-4-6"],
+            "models": ["claude-opus-4-6"],
             "cost_per_1k": 0.015,
-            "max_complexity": 1.0,
-        },
-        {
-            "name": "openai_real",
-            "base_url": "https://api.openai.com/v1",
-            "api_key": os.getenv("OPENAI_API_KEY", ""),
-            "models": ["gpt-4o", "gpt-4o-mini"],
-            "cost_per_1k": 0.01,
-            "max_complexity": 1.0,
+            "max_complexity": 1.0,        # fallback أخير فقط
         },
     ]
 

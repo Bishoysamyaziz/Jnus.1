@@ -1,3 +1,9 @@
+# ═══════════════════════════════════════════════════════════════════
+# OneAgent OS — Render Blueprint Configuration
+# ═══════════════════════════════════════════════════════════════════
+# ✅ Production Fix: تم تحديث الإعدادات للإنتاج
+# ═══════════════════════════════════════════════════════════════════
+
 services:
   - type: web
     name: oneagent-os-api
@@ -5,8 +11,10 @@ services:
     repo: https://github.com/Bishoysamyaziz/Jnus.1
     plan: free
     region: oregon
-    buildCommand: pip install -r requirements.txt
-    startCommand: uvicorn packages.api.main:app --host 0.0.0.0 --port 8000
+    buildCommand: |
+      pip install --upgrade pip
+      pip install -r requirements.txt
+    startCommand: uvicorn packages.api.main:app --host 0.0.0.0 --port 8000 --workers 2
     healthCheckPath: /health
     envVars:
       - key: ENVIRONMENT
@@ -21,3 +29,35 @@ services:
         sync: false
       - key: CLOUDFLARE_ACCOUNT_ID
         sync: false
+      - key: SECRET_KEY
+        generateValue: true
+      - key: FRONTEND_URL
+        value: https://oneagent-os.pages.dev
+      - key: CORS_ORIGIN
+        value: https://oneagent-os.pages.dev
+      - key: NEXT_PUBLIC_API_URL
+        value: https://oneagent-os-api.onrender.com
+      - key: REDIS_URL
+        fromService:
+          type: redis
+          name: oneagent-os-redis
+          property: connectionString
+      - key: POSTGRES_URL
+        fromService:
+          type: postgres
+          name: oneagent-os-postgres
+          property: connectionString
+
+  - type: redis
+    name: oneagent-os-redis
+    plan: free
+    region: oregon
+    maxmemoryPolicy: noeviction
+    ipAllowList: []
+
+  - type: postgres
+    name: oneagent-os-postgres
+    plan: free
+    region: oregon
+    databaseName: oneagent
+    ipAllowList: []

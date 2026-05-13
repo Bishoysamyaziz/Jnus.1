@@ -1,25 +1,24 @@
 #!/bin/bash
 # ═══════════════════════════════════════════════════════════════════
-# OneAgent OS — Cloudflare Secure Deployment Script
+# OneAgent OS — Cloudflare Frontend Deployment Script
 # ═══════════════════════════════════════════════════════════════════
-# This script deploys to Cloudflare Workers using secrets (encrypted)
-# instead of plain-text environment variables.
+# ✅ Production Fix: هذا السكريبت ينشر FRONTEND فقط على Cloudflare Pages
+# الـ API يُنشر على VPS أو Render أو Cloudflare Tunnel — ليس على Workers
 # ═══════════════════════════════════════════════════════════════════
 
 set -euo pipefail
 
-# ── Colors ────────────────────────────────────────────────────────
 RED='\033[0;31m'
 GREEN='\033[0;32m'
 YELLOW='\033[1;33m'
 CYAN='\033[0;36m'
-NC='\033[0m' # No Color
+NC='\033[0m'
 
 echo -e "${CYAN}╔══════════════════════════════════════════════════════╗${NC}"
-echo -e "${CYAN}║     OneAgent OS — Cloudflare Secure Deploy         ║${NC}"
+echo -e "${CYAN}║  OneAgent OS — Cloudflare Frontend Deploy          ║${NC}"
 echo -e "${CYAN}╚══════════════════════════════════════════════════════╝${NC}"
 
-# ── Load .env (without exposing secrets in logs) ──────────────────
+# ── Load .env ──────────────────────────────────────────────────────
 if [ -f .env ]; then
     set -a
     source .env
@@ -30,67 +29,46 @@ else
     exit 1
 fi
 
-# ── Verify Cloudflare is installed ────────────────────────────────
+# ── Verify wrangler ────────────────────────────────────────────────
 if ! command -v wrangler &> /dev/null; then
     echo -e "${YELLOW}⚠ wrangler not found. Installing...${NC}"
     npm install -g wrangler
 fi
 
-# ── Authenticate with Cloudflare using deploy token ───────────────
-echo -e "${CYAN}━━━ Authenticating with Cloudflare ─━━${NC}"
+# ── Build Frontend ─────────────────────────────────────────────────
+echo -e "${CYAN}━━━ Building Frontend ─━━${NC}"
+cd packages/frontend
 
-# Try primary deploy token first, then fallback to secondary
-if [ -n "${CLOUDFLARE_API_TOKEN_DEPLOY:-}" ]; then
-    echo "$CLOUDFLARE_API_TOKEN_DEPLOY" | wrangler login --token-stdin
-    echo -e "${GREEN}✓ Authenticated with primary deploy token${NC}"
-elif [ -n "${CLOUDFLARE_API_TOKEN_DEPLOY2:-}" ]; then
-    echo "$CLOUDFLARE_API_TOKEN_DEPLOY2" | wrangler login --token-stdin
-    echo -e "${GREEN}✓ Authenticated with secondary deploy token${NC}"
-elif [ -n "${CLOUDFLARE_API_TOKEN:-}" ]; then
-    echo "$CLOUDFLARE_API_TOKEN" | wrangler login --token-stdin
-    echo -e "${GREEN}✓ Authenticated with API token${NC}"
-else
-    echo -e "${RED}✗ No Cloudflare token found in .env${NC}"
+echo -e "${YELLOW}→ Using API URL: ${NEXT_PUBLIC_API_URL:-http://localhost:8000}${NC}"
+NEXT_PUBLIC_API_URL=${NEXT_PUBLIC_API_URL:-http://localhost:8000} pnpm build
+
+if [ ! -d "out" ]; then
+    echo -e "${RED}✗ Build failed — 'out' directory not found${NC}"
     exit 1
 fi
 
-# ── Deploy API Worker with secrets ────────────────────────────────
-echo -e "${CYAN}━━━ Deploying API Worker ─━━${NC}"
+echo -e "${GREEN}✓ Frontend built successfully${NC}"
 
-cd packages/api
+# ── Deploy to Cloudflare Pages ─────────────────────────────────────
+echo -e "${CYAN}━━━ Deploying to Cloudflare Pages ─━━${NC}"
 
-# Set secrets (encrypted — never visible in wrangler.toml)
-echo -e "${YELLOW}→ Setting DEEPSEEK_API_KEY as secret...${NC}"
-echo "$DEEPSEEK_API_KEY" | wrangler secret put DEEPSEEK_API_KEY --env production
+# Deploy using wrangler pages
+wrangler pages deploy out/ --project-name oneagent-os --branch production
 
-echo -e "${YELLOW}→ Setting DEEPSEEK_BASE_URL as secret...${NC}"
-echo "$DEEPSEEK_BASE_URL" | wrangler secret put DEEPSEEK_BASE_URL --env production
-
-echo -e "${YELLOW}→ Setting DEEPSEEK_MODEL as secret...${NC}"
-echo "$DEEPSEEK_MODEL" | wrangler secret put DEEPSEEK_MODEL --env production
-
-echo -e "${YELLOW}→ Deploying API Worker...${NC}"
-wrangler deploy --env production
-
-cd ../..
-
-# ── Deploy Frontend ───────────────────────────────────────────────
-echo -e "${CYAN}━━━ Deploying Frontend ─━━${NC}"
-
-cd packages/frontend
-
-echo -e "${YELLOW}→ Setting API_URL as secret...${NC}"
-echo "$API_URL" | wrangler secret put API_URL --env production
-
-echo -e "${YELLOW}→ Deploying Frontend...${NC}"
-wrangler pages deploy . --project-name oneagent-os-frontend
+echo -e "${GREEN}✓ Frontend deployed to Cloudflare Pages${NC}"
 
 cd ../..
 
 # ── Done ──────────────────────────────────────────────────────────
+echo ""
 echo -e "${GREEN}╔══════════════════════════════════════════════════════╗${NC}"
-echo -e "${GREEN}║  ✅ OneAgent OS deployed successfully!              ║${NC}"
+echo -e "${GREEN}║  ✅ OneAgent OS Frontend deployed!                  ║${NC}"
 echo -e "${GREEN}╚══════════════════════════════════════════════════════╝${NC}"
 echo ""
-echo -e "API:     ${CYAN}https://oneagent-os-api.bishoysamyaziz.workers.dev${NC}"
 echo -e "Frontend: ${CYAN}https://oneagent-os.pages.dev${NC}"
+echo -e "API:      ${CYAN}${NEXT_PUBLIC_API_URL:-http://localhost:8000}${NC}"
+echo ""
+echo -e "${YELLOW}⚠ IMPORTANT:${NC}"
+echo -e "  - API is NOT deployed by this script"
+echo -e "  - Make sure your backend is running at: ${CYAN}${NEXT_PUBLIC_API_URL:-http://localhost:8000}${NC}"
+echo -e "  - To deploy API, use: ${CYAN}bash scripts/deploy.sh${NC}"

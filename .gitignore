@@ -18,6 +18,8 @@ node_modules/
 .env
 .env.local
 CLOUDFLARE_CONFIG.md
+secure-backup-config.json
+backup-secure/
 
 # Docker
 .docker-data/
@@ -40,3 +42,5 @@ packages/frontend/.wrangler/
 packages/frontend/out/
 packages/api/.wrangler/
 packages/api/out/
+.env.local
+ssl/
