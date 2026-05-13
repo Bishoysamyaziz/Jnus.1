@@ -1,11 +1,41 @@
 """OneAgent OS — Agent Selection Logic
 Routes intents to the best framework(s) for the job.
+Uses HTTP calls to Docker containers for real execution.
 """
 from __future__ import annotations
 
+import os
 from typing import Any
 
 from .models import Intent, IntentType
+
+# ── Agent URLs (Docker containers) ────────────────────────────────
+AGENT_URLS: dict[str, str] = {
+    "crewai":           os.getenv("AGENT_URL_CREWAI",          "http://agent-crewai:8000"),
+    "metagpt":          os.getenv("AGENT_URL_METAGPT",         "http://agent-metagpt:8000"),
+    "autogen":          os.getenv("AGENT_URL_AUTOGEN",         "http://agent-autogen:8000"),
+    "langchain":        os.getenv("AGENT_URL_LANGCHAIN",       "http://agent-langchain:8000"),
+    "superagi":         os.getenv("AGENT_URL_SUPERAGI",        "http://agent-superagi:8000"),
+    "babyagi":          os.getenv("AGENT_URL_BABYAGI",         "http://agent-babyagi:8000"),
+    "aider":            os.getenv("AGENT_URL_AIDER",           "http://agent-aider:8000"),
+    "openhands":        os.getenv("AGENT_URL_OPENHANDS",       "http://agent-openhands:8000"),
+    "smolagents":       os.getenv("AGENT_URL_SMOLAGENTS",      "http://agent-smolagents:8000"),
+    "haystack":         os.getenv("AGENT_URL_HAYSTACK",        "http://agent-haystack:8000"),
+    "llamaindex":       os.getenv("AGENT_URL_LLAMAINDEX",      "http://agent-llamaindex:8000"),
+    "langgraph":        os.getenv("AGENT_URL_LANGGRAPH",       "http://agent-langgraph:8000"),
+    "camel":            os.getenv("AGENT_URL_CAMEL",           "http://agent-camel:8000"),
+    "letta":            os.getenv("AGENT_URL_LETTA",           "http://agent-letta:8000"),
+    "mem0":             os.getenv("AGENT_URL_MEM0",            "http://agent-mem0:8000"),
+    "taskweaver":       os.getenv("AGENT_URL_TASKWEAVER",      "http://agent-taskweaver:8000"),
+    "swarm":            os.getenv("AGENT_URL_SWARM",           "http://agent-swarm:8000"),
+    "agentverse":       os.getenv("AGENT_URL_AGENTVERSE",      "http://agent-agentverse:8000"),
+    "autogpt":          os.getenv("AGENT_URL_AUTOGPT",         "http://agent-autogpt:8000"),
+    "agentgpt":         os.getenv("AGENT_URL_AGENTGPT",        "http://agent-agentgpt:8000"),
+    "huggingface":      os.getenv("AGENT_URL_HUGGINGFACE",     "http://agent-huggingface:8000"),
+    "rasa":             os.getenv("AGENT_URL_RASA",            "http://agent-rasa:8000"),
+    "botpress":         os.getenv("AGENT_URL_BOTPRESS",        "http://agent-botpress:8000"),
+    "semantic_kernel":  os.getenv("AGENT_URL_SEMANTIC_KERNEL", "http://agent-semantic-kernel:8000"),
+}
 
 # Routing table: intent type → ordered list of agent names to try
 AGENT_ROUTING: dict[str, list[str]] = {
@@ -65,6 +95,38 @@ async def select_agent(intent: Intent, skill_memory=None) -> list[str]:
 
     # Fallback to routing table
     return AGENT_ROUTING.get(intent.type.value, ["langchain"])
+
+
+async def call_agent(agent_name: str, task: dict) -> dict:
+    """Call an agent via HTTP to its Docker container.
+    Returns the agent's response or error.
+    """
+    import httpx
+    url = AGENT_URLS.get(agent_name)
+    if not url:
+        return {"success": False, "error": f"Agent {agent_name} not found", "agent": agent_name}
+    try:
+        async with httpx.AsyncClient(timeout=120.0) as client:
+            r = await client.post(f"{url}/execute", json=task)
+            return r.json()
+    except httpx.ConnectError:
+        return {"success": False, "error": f"Agent {agent_name} container not reachable at {url}", "agent": agent_name}
+    except Exception as e:
+        return {"success": False, "error": str(e), "agent": agent_name}
+
+
+async def check_agent_health(agent_name: str) -> dict:
+    """Check if an agent container is healthy."""
+    import httpx
+    url = AGENT_URLS.get(agent_name)
+    if not url:
+        return {"status": "unknown", "agent": agent_name}
+    try:
+        async with httpx.AsyncClient(timeout=5.0) as client:
+            r = await client.get(f"{url}/health")
+            return r.json()
+    except Exception:
+        return {"status": "unreachable", "agent": agent_name}
 
 
 def get_agent_capability(agent_name: str) -> dict[str, Any]:

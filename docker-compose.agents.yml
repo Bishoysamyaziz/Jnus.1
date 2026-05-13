@@ -1,0 +1,255 @@
+# ═══════════════════════════════════════════════════════════════════
+# OneAgent OS — 24 Agent Docker Compose (Isolated Containers)
+# ═══════════════════════════════════════════════════════════════════
+# Each agent runs in its own container with only its own dependencies.
+# No dependency conflicts between agents.
+# ═══════════════════════════════════════════════════════════════════
+
+services:
+  agent-crewai:
+    build:
+      context: .
+      dockerfile: dockerfiles/Dockerfile.crewai
+    ports: ["8101:8000"]
+    environment:
+      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY:-}
+      - OPENAI_API_KEY=${OPENAI_API_KEY:-}
+    networks:
+      - oneagent-net
+
+  agent-metagpt:
+    build:
+      context: .
+      dockerfile: dockerfiles/Dockerfile.metagpt
+    ports: ["8102:8000"]
+    environment:
+      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY:-}
+      - OPENAI_API_KEY=${OPENAI_API_KEY:-}
+    networks:
+      - oneagent-net
+
+  agent-autogen:
+    build:
+      context: .
+      dockerfile: dockerfiles/Dockerfile.autogen
+    ports: ["8103:8000"]
+    environment:
+      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY:-}
+      - OPENAI_API_KEY=${OPENAI_API_KEY:-}
+    networks:
+      - oneagent-net
+
+  agent-langchain:
+    build:
+      context: .
+      dockerfile: dockerfiles/Dockerfile.langchain
+    ports: ["8104:8000"]
+    environment:
+      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY:-}
+      - OPENAI_API_KEY=${OPENAI_API_KEY:-}
+    networks:
+      - oneagent-net
+
+  agent-superagi:
+    build:
+      context: .
+      dockerfile: dockerfiles/Dockerfile.superagi
+    ports: ["8105:8000"]
+    environment:
+      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY:-}
+    networks:
+      - oneagent-net
+
+  agent-babyagi:
+    build:
+      context: .
+      dockerfile: dockerfiles/Dockerfile.babyagi
+    ports: ["8106:8000"]
+    environment:
+      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY:-}
+    networks:
+      - oneagent-net
+
+  agent-aider:
+    build:
+      context: .
+      dockerfile: dockerfiles/Dockerfile.aider
+    ports: ["8107:8000"]
+    environment:
+      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY:-}
+    networks:
+      - oneagent-net
+
+  agent-openhands:
+    build:
+      context: .
+      dockerfile: dockerfiles/Dockerfile.openhands
+    ports: ["8108:8000"]
+    environment:
+      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY:-}
+    networks:
+      - oneagent-net
+
+  agent-smolagents:
+    build:
+      context: .
+      dockerfile: dockerfiles/Dockerfile.smolagents
+    ports: ["8109:8000"]
+    environment:
+      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY:-}
+    networks:
+      - oneagent-net
+
+  agent-haystack:
+    build:
+      context: .
+      dockerfile: dockerfiles/Dockerfile.haystack
+    ports: ["8110:8000"]
+    environment:
+      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY:-}
+    networks:
+      - oneagent-net
+
+  agent-llamaindex:
+    build:
+      context: .
+      dockerfile: dockerfiles/Dockerfile.llamaindex
+    ports: ["8111:8000"]
+    environment:
+      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY:-}
+    networks:
+      - oneagent-net
+
+  agent-langgraph:
+    build:
+      context: .
+      dockerfile: dockerfiles/Dockerfile.langgraph
+    ports: ["8112:8000"]
+    environment:
+      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY:-}
+    networks:
+      - oneagent-net
+
+  agent-camel:
+    build:
+      context: .
+      dockerfile: dockerfiles/Dockerfile.camel
+    ports: ["8113:8000"]
+    environment:
+      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY:-}
+    networks:
+      - oneagent-net
+
+  agent-letta:
+    build:
+      context: .
+      dockerfile: dockerfiles/Dockerfile.letta
+    ports: ["8114:8000"]
+    environment:
+      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY:-}
+    networks:
+      - oneagent-net
+
+  agent-mem0:
+    build:
+      context: .
+      dockerfile: dockerfiles/Dockerfile.mem0
+    ports: ["8115:8000"]
+    environment:
+      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY:-}
+    networks:
+      - oneagent-net
+
+  agent-taskweaver:
+    build:
+      context: .
+      dockerfile: dockerfiles/Dockerfile.taskweaver
+    ports: ["8116:8000"]
+    environment:
+      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY:-}
+    networks:
+      - oneagent-net
+
+  agent-swarm:
+    build:
+      context: .
+      dockerfile: dockerfiles/Dockerfile.swarm
+    ports: ["8117:8000"]
+    environment:
+      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY:-}
+    networks:
+      - oneagent-net
+
+  agent-agentverse:
+    build:
+      context: .
+      dockerfile: dockerfiles/Dockerfile.agentverse
+    ports: ["8118:8000"]
+    environment:
+      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY:-}
+    networks:
+      - oneagent-net
+
+  agent-autogpt:
+    build:
+      context: .
+      dockerfile: dockerfiles/Dockerfile.autogpt
+    ports: ["8119:8000"]
+    environment:
+      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY:-}
+    networks:
+      - oneagent-net
+
+  agent-agentgpt:
+    build:
+      context: .
+      dockerfile: dockerfiles/Dockerfile.agentgpt
+    ports: ["8120:8000"]
+    environment:
+      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY:-}
+    networks:
+      - oneagent-net
+
+  agent-huggingface:
+    build:
+      context: .
+      dockerfile: dockerfiles/Dockerfile.huggingface
+    ports: ["8121:8000"]
+    environment:
+      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY:-}
+    networks:
+      - oneagent-net
+
+  agent-rasa:
+    build:
+      context: .
+      dockerfile: dockerfiles/Dockerfile.rasa
+    ports: ["8122:8000"]
+    environment:
+      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY:-}
+    networks:
+      - oneagent-net
+
+  agent-botpress:
+    build:
+      context: .
+      dockerfile: dockerfiles/Dockerfile.botpress
+    ports: ["8123:8000"]
+    environment:
+      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY:-}
+    networks:
+      - oneagent-net
+
+  agent-semantic-kernel:
+    build:
+      context: .
+      dockerfile: dockerfiles/Dockerfile.semantic-kernel
+    ports: ["8124:8000"]
+    environment:
+      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY:-}
+    networks:
+      - oneagent-net
+
+networks:
+  oneagent-net:
+    driver: bridge

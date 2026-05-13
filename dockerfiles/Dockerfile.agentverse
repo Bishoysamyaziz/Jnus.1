@@ -1,0 +1,9 @@
+FROM python:3.12-slim
+WORKDIR /app
+RUN pip install --no-cache-dir agentverse fastapi uvicorn anthropic openai httpx
+COPY packages/agents/agent_http_wrapper.py .
+COPY packages/agents/agentverse_agent.py .
+COPY packages/core/ ./core/
+ENV AGENT_CLASS=AgentVerseAgent
+ENV AGENT_MODULE=agentverse_agent
+CMD ["uvicorn", "agent_http_wrapper:app", "--host", "0.0.0.0", "--port", "8000"]

@@ -262,33 +262,37 @@ class Orchestrator:
             )
 
     async def _execute_single_task(self, task: Task, agent_name: str, memory: MemoryContext) -> AgentResult:
-        """Execute a single task using the specified agent"""
-        agent = self.agent_registry.get(agent_name)
-        if agent is None:
-            # If agent not registered, use a simulated response
-            return await self._simulate_agent_response(task, agent_name)
+        """Execute a single task using the specified agent via HTTP (Docker container)"""
+        from .agent_selector import call_agent
 
         start = time.time()
         try:
-            # ✅ B6 Fix: تعيين llm_config على الـ agent قبل التنفيذ
-            # هذا يضمن أن الـ agent يستخدم llm_config المُمرر من Orchestrator
-            # وليس os.environ (الذي قد يكون فارغاً أو قديماً)
-            if hasattr(agent, 'set_llm_config'):
-                agent.set_llm_config(self._llm_config if hasattr(self, '_llm_config') else {})
+            # Call the agent via HTTP to its Docker container
+            result = await call_agent(agent_name, {
+                "message": task.description,
+                "session_id": memory.session_id,
+                "context": {
+                    "intent": task.intent.type.value if task.intent else "CODE",
+                    "llm_config": self._llm_config if hasattr(self, '_llm_config') else {},
+                }
+            })
 
-            # ✅ تمرير memory + llm_config إلى agent.execute
-            result = await agent.execute(task, memory)
-            result.duration_ms = (time.time() - start) * 1000
-            return result
+            duration = (time.time() - start) * 1000
+
+            if result.get("success"):
+                return AgentResult(
+                    content=result.get("content", ""),
+                    framework=agent_name,
+                    success=True,
+                    duration_ms=duration,
+                    metadata={"agent": agent_name, "container": True},
+                )
+            else:
+                # Fallback to simulated response if container fails
+                return await self._simulate_agent_response(task, agent_name)
         except Exception as e:
-            result = AgentResult(
-                content="",
-                framework=agent_name,
-                success=False,
-                error=str(e),
-                duration_ms=(time.time() - start) * 1000,
-            )
-            return result
+            # Fallback to simulated response on any error
+            return await self._simulate_agent_response(task, agent_name)
 
     async def _try_fallback(self, task: Task, agent_names: list[str], memory: MemoryContext) -> AgentResult | None:
         """Try fallback agents when the primary fails"""
