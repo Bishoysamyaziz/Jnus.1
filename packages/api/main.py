@@ -148,10 +148,10 @@ async def health_check():
     }
 
 @app.post("/chat")
-async def chat(request: ChatRequest):
+async def chat(request: ChatRequest, fastapi_request: Request):
     if not state.agent:
         raise HTTPException(status_code=503, detail="Service not initialized")
-    user_id = request.user_id or get_current_user(request) or "anonymous"
+    user_id = request.user_id or get_current_user(fastapi_request) or "anonymous"
 
     async def event_generator():
         try:
